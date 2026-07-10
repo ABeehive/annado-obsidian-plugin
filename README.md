@@ -42,6 +42,13 @@ and it also works completely on its own — no desktop app required.
 | <img src="images/projects.png" width="240" alt="Projects view with color dots and task counts"> | <img src="images/people.png" width="240" alt="People view"> | <img src="images/tags.png" width="240" alt="Tags view with task counts"> |
 | Your project notes, with their own colors. | Tasks per `[[Person]]` you mention. | Every `#tag`, nested tags included. |
 
+Tap any of them to drill in:
+
+| Inside a project | Inside a person | Inside a tag |
+|:--:|:--:|:--:|
+| <img src="images/project-detail.png" width="240" alt="A project's detail view with description, due date, milestones and its tasks"> | <img src="images/person-detail.png" width="240" alt="A person's detail view with organisation, role, languages and their tasks"> | <img src="images/tag-detail.png" width="240" alt="A tag's detail view listing every task carrying it"> |
+| Description, dates and milestones from the project note, above its tasks. | Organisation, role and languages from the person note. | Everything carrying the tag, in one list. |
+
 | Anytime | Someday | Logbook |
 |:--:|:--:|:--:|
 | <img src="images/anytime.png" width="240" alt="Anytime view"> | <img src="images/someday.png" width="240" alt="Someday view"> | <img src="images/logbook.png" width="240" alt="Logbook of completed tasks, grouped by day"> |
