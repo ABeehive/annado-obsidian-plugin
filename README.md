@@ -1,178 +1,171 @@
 # Annado Mobile
 
-A lightweight, **iOS-ready Obsidian plugin** (`isDesktopOnly: false`) — a mobile
-companion to the **Annado** desktop app. It reads and writes the **same plain-markdown
-checkbox tasks** with inline metadata, over the **same Obsidian vault**, so your phone and
-Mac stay in sync through the vault itself.
+**Your Obsidian vault as a friendly task manager on your phone.**
 
-Plain DOM (no framework), TypeScript, esbuild, vitest. The parser is a faithful port of
-the desktop app's Rust core, so the two apps agree byte-for-byte on the file format.
+Annado Mobile turns the Markdown checkboxes already in your notes into a fast,
+thumb-friendly task app: Inbox, Today, Upcoming, projects, people and tags — with swipe
+gestures, quick capture and search. Your tasks never leave your notes: everything is
+plain text in your own files, synced however your vault syncs.
 
----
+It's the mobile companion to the [Annado desktop app](https://github.com/ABeehive/Annado),
+and it also works completely on its own — no desktop app required.
 
-## Works standalone
+<p align="center">
+  <img src="images/today.png" width="300" alt="The Today view: tasks with dates, priorities, tags and deadline flags, grouped by project">
+</p>
 
-**You don't need the Annado desktop app to use this plugin.** It's a complete task
-manager on its own: it reads and writes ordinary Markdown checkbox tasks in your vault,
-so all its views, editing, scheduling and Quick Find work with nothing but Obsidian
-installed.
+## Why you might like it
 
-The desktop app is an *optional* companion. When it's present and its vault-sharing
-toggle is on, it drops a `shared.json` file next to the plugin that syncs a few settings
-(project/tag colors, the task format and excluded paths). Without that file the plugin
-simply falls back to its own local settings and stable per-name colors — nothing breaks.
+- **Everything stays in your notes.** Tasks are ordinary `- [ ]` checkbox lines. No
+  database, no account, no lock-in — turn the plugin off and your tasks are still right
+  there in your Markdown.
+- **Made for your thumb.** Swipe right to complete, swipe left to reschedule or delete.
+  A big `+` for quick capture. A built-in tap calendar for picking dates (mobile
+  Obsidian can't show the native iOS date picker — so we bring our own).
+- **Careful with your files.** Completing a task changes only the checkbox and adds a
+  completion date; everything else on the line stays exactly as you wrote it — including
+  things the plugin doesn't recognize. That promise is guarded by a test suite of 240+
+  cases.
+- **Plays nicely with other plugins.** It reads three task styles — Annado
+  (`@when(...)`), Obsidian Tasks (emoji) and Dataview (`[key:: value]`) — and writes
+  whichever one you choose in settings.
 
-> **Note:** *Annado* (the desktop app, React + Rust/Tauri, macOS) is a separate product
-> and is **not yet publicly available**. This plugin stands on its own until it is; the
-> sections below that compare the two are there so you know what the plugin deliberately
-> leaves out, not because you need the desktop app to get started.
+## A tour
 
----
+| Today | Upcoming | Inbox |
+|:--:|:--:|:--:|
+| <img src="images/today.png" width="240" alt="Today view"> | <img src="images/upcoming.png" width="240" alt="Upcoming view, grouped by day"> | <img src="images/inbox.png" width="240" alt="Inbox view"> |
+| Today's plan plus anything overdue, with deadline flags. | The days ahead, grouped per day. | Unscheduled captures waiting for a home. |
+
+| Projects | People | Tags |
+|:--:|:--:|:--:|
+| <img src="images/projects.png" width="240" alt="Projects view with color dots and task counts"> | <img src="images/people.png" width="240" alt="People view"> | <img src="images/tags.png" width="240" alt="Tags view with task counts"> |
+| Your project notes, with their own colors. | Tasks per `[[Person]]` you mention. | Every `#tag`, nested tags included. |
+
+| Anytime | Someday | Logbook |
+|:--:|:--:|:--:|
+| <img src="images/anytime.png" width="240" alt="Anytime view"> | <img src="images/someday.png" width="240" alt="Someday view"> | <img src="images/logbook.png" width="240" alt="Logbook of completed tasks, grouped by day"> |
+| Ready whenever you are. | Ideas for later. | What you finished, day by day. |
+
+Anytime, Someday and Logbook live behind the **⋯ More** button:
+
+| More views | Quick Find |
+|:--:|:--:|
+| <img src="images/more-views.png" width="240" alt="The More menu with Anytime, Someday and Logbook"> | <img src="images/quick-find.png" width="240" alt="Quick Find searching tasks, projects, people and tags"> |
+| One tap away. | Search tasks, projects, people and tags from anywhere. |
+
+## Adding and editing
+
+| New task | Edit task | Delete asks first |
+|:--:|:--:|:--:|
+| <img src="images/new-task.png" width="240" alt="The New task sheet"> | <img src="images/edit-task.png" width="240" alt="The Edit task sheet"> | <img src="images/delete-task.png" width="240" alt="Delete confirmation dialog"> |
+
+- **Add** — tap `+`. Set a date, deadline, project, priority, duration and tags from the
+  icon row; tags autocomplete. The sheet is context-aware: add from a project, person or
+  tag view and it's pre-filled. New tasks land in today's daily note.
+- **Edit** — open a task and tap the pencil to change anything.
+- **Complete** — tap the circle. Recurring tasks (`every week`, `every 2 days when done`,
+  …) automatically schedule their next occurrence.
+- **Reschedule** — tap a task's date pill for Today / Tomorrow / This weekend / Next
+  week, or pick any date on the tap calendar.
+- **Open in Obsidian** — jump straight to the task's line in your note.
+
+## How your tasks are stored
+
+A task is one checkbox line in any note, with optional details inline:
+
+```markdown
+- [ ] Order the kitchen sink @when(2026-07-12) @due(2026-07-14) !! #home [[Home Renovation]]
+```
+
+- The date it's planned for (`@when`), a deadline (`@due`), priority (`!` to `!!!`),
+  a duration, `#tags`, and `[[Project]]` or `[[Person]]` links.
+- Indented lines below a task become its **notes**; indented checkboxes become its
+  **checklist**.
+- Projects and people are regular notes in folders you point the plugin at
+  (`Projects/`, `Persons/` — configurable). A project's tasks can live in its own note
+  or reference it with a `[[wikilink]]` from anywhere.
+- Prefer the [Obsidian Tasks](https://publish.obsidian.md/tasks/) emoji style or
+  Dataview fields? The plugin reads all three styles and writes the one you pick.
+
+## Using it with the Annado desktop app
+
+[Annado](https://github.com/ABeehive/Annado) is a task manager for your Mac built on the
+same idea — your Obsidian / Markdown files are the database. Run both and your phone and
+Mac stay in sync through the vault itself: same files, same format, no extra service.
+
+When the desktop app's *"This vault is used with the Obsidian plugin"* toggle is on, it
+shares a small `shared.json` with the plugin: project colors sync both ways, and tag
+colors, the task format, the import marker and excluded paths follow the desktop
+(they show as locked in the plugin's settings). Without the desktop app the plugin
+simply uses its own settings and picks stable colors per name — nothing breaks.
+
+<details>
+<summary><b>What stays desktop-only?</b> (the plugin is deliberately a lean companion)</summary>
+
+| Area | Desktop | Plugin |
+|------|---------|--------|
+| **Agenda / time-blocking** | Day & week timelines, drag-to-schedule, auto-scheduling | — |
+| **Calendar integration** | Reads the macOS Calendar into the agenda | — |
+| **Wrapped** | A year-in-review recap | — |
+| **Review** | GTD-style review of stalled and overdue work | — |
+| **Recurring templates** | Full editor for `@repeat` rules | Advances existing rules on complete; rules survive untouched |
+| **Smart Lists** | Saved custom filters | — |
+| **Natural-language add** | "tomorrow", "next week" typed in Quick Add | Presets + tap calendar instead |
+| **Bulk & reorder** | Multi-select, drag-and-drop ordering | — |
+| **Delete** | Delete with undo | Confirm-before-delete |
+| **Notifications & tray** | Deadline notifications, system tray | — |
+| **Scheduled time** | `@time()` editable | Displayed, not editable |
+
+</details>
 
 ## Install
 
-**Manual (available now):** copy `main.js`, `manifest.json` and `styles.css` into
-`<vault>/.obsidian/plugins/annado-mobile/`, let the vault sync to your device
-(Obsidian Sync / iCloud / etc.), then enable **Annado Mobile** under
-Settings → Community plugins. `main.js` is a build artifact — run `npm run build` first
-(see [Develop](#develop)) or grab it from a release.
+**Community plugins (once accepted):** Settings → Community plugins → Browse → search
+for *Annado Mobile*.
 
-**Community plugins (once accepted):** search for *Annado Mobile* in
-Settings → Community plugins → Browse and install it there.
+**Manual:** download `main.js`, `manifest.json` and `styles.css` from a
+[release](https://github.com/ABeehive/annado-obsidian-plugin/releases) and copy them
+into `<vault>/.obsidian/plugins/annado-mobile/`. Let the vault sync to your device, then
+enable **Annado Mobile** under Settings → Community plugins.
 
-After enabling, set your folder patterns and task format under the plugin's settings tab.
+## Settings
 
----
+| | |
+|:--:|:--:|
+| <img src="images/settings-1.png" width="280" alt="Settings: folder patterns, task format, import marker"> | <img src="images/settings-2.png" width="280" alt="Settings: daily notes fallback and excluded paths"> |
 
-## What it does
-
-### Views
-Six tab tiles plus a **"⋯ More"** menu:
-
-- **Inbox** — unscheduled tasks with no project
-- **Today** — today/overdue by scheduled date, an **Evening** section, and overdue-by-deadline
-- **Upcoming** — future tasks grouped by day, with month headers
-- **Projects** — nested by frontmatter `up:` (collapsible tree)
-- **People** — tasks per `[[Person]]`
-- **Tags** — nested `#tag/subtag` tree
-- **⋯ More → Anytime / Someday / Logbook** — Logbook groups completed tasks by
-  completion date (Today / Yesterday / …), capped and newest-first
-
-### Managing tasks
-- **Complete** — tap the checkbox; the source line is toggled **byte-preservingly** (only
-  the checkbox char + `@completed` marker change). Completing a modeled `@repeat(...)` task
-  inserts the next occurrence, like the desktop app.
-- **Edit** — pencil in the expanded card opens a modal to change title, notes, when,
-  deadline, project, priority, duration and tags (the whole line re-serializes, matching
-  the desktop `update_task`).
-- **Reschedule** — tap the date pill (or swipe → **Reschedule**) for a when-menu; tap the
-  flag/deadline chip for a deadline-menu. Both offer presets (Today / Tomorrow / This
-  weekend / Next week) and **"Pick a date…"** → a built-in tap calendar.
-- **Delete** — swipe → **Delete** (or from the expanded card), with a confirm dialog.
-- **Swipe gestures** — right = complete, left = Reschedule + Delete (axis-locked so
-  vertical scrolling still works; one row open at a time).
-- **Add** — the `+` opens a compact modal (title, notes, and an icon toolbar for
-  when / deadline / project / priority / duration + tag autocomplete). It's
-  **context-aware**: from a project/person/tag view or Anytime/Someday it pre-fills that
-  context. New tasks are appended to today's daily note.
-- **Quick Find** — 🔍 (or the *Quick Find* command) fuzzy-searches tasks, projects, people
-  and tags; picking a task reveals it in-app, an entity opens its detail view.
-- **Open in Obsidian** — jump to a task's exact source line.
-
-### Format & parser guarantees
-`src/parser/` is a TypeScript port of the desktop app's Rust parser
-(`src-tauri/src/{parser,taskformat,recurrence}.rs` — those paths live in the desktop
-repo, not this one), so both apps agree byte-for-byte on the file format:
-
-- **Reads all three dialects** — Annado (`@when()` / `@due()` / `!1`), Obsidian Tasks
-  (emoji), Dataview (`[key:: value]`) — and **writes the one you configure**.
-- Tags via `#tag` (nested), projects/persons via `[[Wikilinks]]`.
-- Byte-preserving complete-toggle; CRLF preserved; unknown/foreign markers survive an edit
-  inside the title remainder. Covered by `tests/roundtrip.test.ts` (100+ parser tests).
-
-### Mobile niceties
-- A **built-in tap calendar** for arbitrary dates — Obsidian's mobile webview can't open
-  native `<input type="date">` pickers, so dates are chosen with buttons that do work.
-- Subtle completion animation, warm empty states, phone-optimised icon tab bar.
-- Detail-view info panels collapse to a one-line summary (chevron) to keep tasks on screen.
-
----
-
-## Compared to the Annado desktop app
-
-*(For context — the plugin is fully usable without the desktop app; this section just maps
-out what the larger desktop product adds, so you know what the plugin intentionally
-scopes out.)*
-
-The desktop app (React + Rust/Tauri, macOS) is the full product. The plugin is a
-**focused mobile companion for capture, triage and day-to-day managing** — it deliberately
-leaves the heavy and macOS-native features to the desktop.
-
-### Shared (both apps)
-Same vault & task file format (all three dialects, read-any/write-chosen, `#task` import
-marker, frontmatter-tag inheritance) · Inbox / Today / Upcoming / Anytime / Someday /
-Logbook · Projects (nested) / People / Tags (nested) · create · edit · complete ·
-reschedule (when) · deadlines · priority · duration · checklists · notes · delete ·
-Quick Find · open-in-editor · recurrence **advance on complete** for modeled `@repeat`
-rules.
-
-- **Project & person info** — a project's view shows its description, due/start dates,
-  priority, people and milestones; a person's view shows organisation, relationship,
-  languages and projects (read-only on mobile — edit on desktop or in the note).
-- **Desktop sync (`shared.json`)** — when the desktop app's "This vault is used with the
-  Obsidian plugin" toggle is on, project colors sync two-way (editable from a project's view
-  by tapping the color dot) through `.obsidian/plugins/annado-mobile/shared.json`; tag colors
-  and the parser settings (task format, import marker, excluded paths) sync one-way from the
-  desktop and show as locked in the plugin's settings tab. Without the file, the plugin falls
-  back to local settings and stable per-name colors, and color editing is disabled — the
-  plugin never creates the file (an absent file means the integration is off).
-
-### Only on desktop (not in the plugin)
-| Area | Desktop | Plugin |
-|------|---------|--------|
-| **Agenda / time-blocking** | Day & week timelines, drag-to-schedule, auto-scheduling, now-line | — |
-| **Calendar integration** | Reads the macOS Calendar (EventKit) into the agenda | — |
-| **Wrapped** | Spotify-Wrapped-style year recap (~14 animated slides) | — |
-| **Review** | GTD review: stalled / overdue / quiet-project surfacing | — |
-| **Recurring templates** | A *Recurring* view + UI to create/edit `@repeat` rules (+ a legacy→inline migration) | Advances existing rules on complete, but no recurrence editor — rules survive untouched in the line |
-| **Smart Lists** | Saved custom filters (priority, hasDeadline, age, dueWithin, …) | — |
-| **Added Today** | A dedicated view of today's captures | — |
-| **Natural-language add** | "morgen", "next week" parsed in Quick Add (EN + NL) | Menus / presets / calendar instead |
-| **Bulk & reorder** | Multi-select bulk actions, drag-and-drop ordering of tasks & projects | — |
-| **Delete** | Delete **with undo** (snapshot + restore) | Confirm-before-delete (no undo) |
-| **Notifications & tray** | Deadline/overdue notifications, system tray | — |
-| **Scheduled time** | `@time()` editable | Displayed, not editable |
-| **Theming / shortcuts** | Custom accent colour, fully customisable keybindings | Fixed ported palette; two commands (*Open Annado*, *Quick Find*) |
-
-Most of these are **intentional non-goals** for a phone: the plugin's job is to let you
-capture, triage and manage tasks anywhere, and let the desktop own planning, review and
-the macOS-native pieces.
-
----
+- **Projects / Persons folder pattern** — which folders hold your project and people
+  notes.
+- **Task format** — the style new edits are written in (reading understands all three).
+- **Import marker** — optional: only treat checkboxes tagged e.g. `#task` as tasks.
+- **Daily notes (fallback)** — only used when the Daily Notes core plugin isn't
+  configured; its settings always win.
+- **Excluded paths** — folders or files the plugin should ignore (`Archive/`, …).
 
 ## Known limitations
 
-- **Projects are keyed by file name.** Like the desktop app, a project is identified by
-  its basename and the `up:` parent is matched by name, so two project files with the
-  *same* name in different folders collapse into one (one is hidden, and `up` links can't
-  tell them apart).
-- **No native date picker on mobile.** Obsidian's mobile webview can't open a native
-  `<input type="date">`, so arbitrary dates are chosen with the built-in tap calendar
-  ("Pick a date…") rather than the OS date wheel.
-- **Tag colors are sync-only.** They sync *from* the desktop via `shared.json` but aren't
-  editable in the plugin (project colors are).
-- **`inheritFrontmatterTags` isn't applied yet.** The setting arrives via `shared.json` and
-  is preserved, but the plugin doesn't yet inherit a note's frontmatter tags onto its tasks.
+- **Projects are keyed by file name** — two project notes with the same name in
+  different folders are treated as one.
+- **No native date picker on mobile** — Obsidian's mobile webview can't open one, so
+  dates are picked on the built-in tap calendar instead.
+- **Tag colors are sync-only** — they follow the desktop app via `shared.json` and
+  aren't editable in the plugin (project colors are).
+- **`inheritFrontmatterTags` isn't applied yet** — the setting syncs and is preserved,
+  but a note's frontmatter tags aren't inherited onto its tasks yet.
 
-## Develop
+## Under the hood & contributing
+
+Plain TypeScript and DOM (no framework), bundled with esbuild, tested with vitest. The
+parser is a line-for-line port of the desktop app's Rust core, so both apps agree
+byte-for-byte on the file format.
 
 ```bash
 npm install
-npm test          # vitest — parser ports + round-trip / byte-preservation corpus
+npm test          # vitest — parser, round-trip and byte-preservation suites
 npm run build     # type-check + bundle to main.js
 npm run dev       # esbuild watch mode
 ```
 
-`main.js` is a build artifact (git-ignored); build it before deploying. For quick
-desktop-Obsidian testing, symlink this folder into a test vault's `.obsidian/plugins/` and
-run `npm run dev`.
+`main.js` is a build artifact (git-ignored). For quick testing, symlink this folder into
+a test vault's `.obsidian/plugins/` and run `npm run dev`.
