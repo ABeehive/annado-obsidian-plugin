@@ -100,24 +100,8 @@ colors, the task format, the import marker and excluded paths follow the desktop
 (they show as locked in the plugin's settings). Without the desktop app the plugin
 simply uses its own settings and picks stable colors per name — nothing breaks.
 
-<details>
-<summary><b>What stays desktop-only?</b> (the plugin is deliberately a lean companion)</summary>
-
-| Area | Desktop | Plugin |
-|------|---------|--------|
-| **Agenda / time-blocking** | Day & week timelines, drag-to-schedule, auto-scheduling | — |
-| **Calendar integration** | Reads the macOS Calendar into the agenda | — |
-| **Wrapped** | A year-in-review recap | — |
-| **Review** | GTD-style review of stalled and overdue work | — |
-| **Recurring templates** | Full editor for `@repeat` rules | Advances existing rules on complete; rules survive untouched |
-| **Smart Lists** | Saved custom filters | — |
-| **Natural-language add** | "tomorrow", "next week" typed in Quick Add | Presets + tap calendar instead |
-| **Bulk & reorder** | Multi-select, drag-and-drop ordering | — |
-| **Delete** | Delete with undo | Confirm-before-delete |
-| **Notifications & tray** | Deadline notifications, system tray | — |
-| **Scheduled time** | `@time()` editable | Displayed, not editable |
-
-</details>
+Curious exactly what the desktop app adds? There's a
+[full comparison](#compared-to-the-annado-desktop-app) at the bottom of this page.
 
 ## Install
 
@@ -153,6 +137,59 @@ enable **Annado Mobile** under Settings → Community plugins.
   aren't editable in the plugin (project colors are).
 - **`inheritFrontmatterTags` isn't applied yet** — the setting syncs and is preserved,
   but a note's frontmatter tags aren't inherited onto its tasks yet.
+
+## Compared to the Annado desktop app
+
+*(For context — the plugin is fully usable without the desktop app; this section just
+maps out what the larger desktop product adds, so you know what the plugin intentionally
+scopes out.)*
+
+The [desktop app](https://github.com/ABeehive/Annado) (React + Rust/Tauri, macOS) is the
+full product. The plugin is a **focused mobile companion for capture, triage and
+day-to-day managing** — it deliberately leaves the heavy and macOS-native features to
+the desktop.
+
+### Shared (both apps)
+
+Same vault & task file format (all three dialects, read-any/write-chosen, `#task` import
+marker, frontmatter-tag inheritance) · Inbox / Today / Upcoming / Anytime / Someday /
+Logbook · Projects (nested) / People / Tags (nested) · create · edit · complete ·
+reschedule (when) · deadlines · priority · duration · checklists · notes · delete ·
+Quick Find · open-in-editor · recurrence **advance on complete** for modeled `@repeat`
+rules.
+
+- **Project & person info** — a project's view shows its description, due/start dates,
+  priority, people and milestones; a person's view shows organisation, relationship,
+  languages and projects (read-only on mobile — edit on desktop or in the note).
+- **Desktop sync (`shared.json`)** — when the desktop app's "This vault is used with the
+  Obsidian plugin" toggle is on, project colors sync two-way (editable from a project's
+  view by tapping the color dot); tag colors and the parser settings (task format, import
+  marker, excluded paths) sync one-way from the desktop and show as locked in the
+  plugin's settings tab. Without the file, the plugin falls back to local settings and
+  stable per-name colors, and color editing is disabled — the plugin never creates the
+  file (an absent file means the integration is off).
+
+### Only on desktop (not in the plugin)
+
+| Area | Desktop | Plugin |
+|------|---------|--------|
+| **Agenda / time-blocking** | Day & week timelines, drag-to-schedule, auto-scheduling, now-line | — |
+| **Calendar integration** | Reads the macOS Calendar (EventKit) into the agenda | — |
+| **Wrapped** | Spotify-Wrapped-style year recap (~14 animated slides) | — |
+| **Review** | GTD review: stalled / overdue / quiet-project surfacing | — |
+| **Recurring templates** | A *Recurring* view + UI to create/edit `@repeat` rules (+ a legacy→inline migration) | Advances existing rules on complete, but no recurrence editor — rules survive untouched in the line |
+| **Smart Lists** | Saved custom filters (priority, hasDeadline, age, dueWithin, …) | — |
+| **Added Today** | A dedicated view of today's captures | — |
+| **Natural-language add** | "morgen", "next week" parsed in Quick Add (EN + NL) | Menus / presets / calendar instead |
+| **Bulk & reorder** | Multi-select bulk actions, drag-and-drop ordering of tasks & projects | — |
+| **Delete** | Delete **with undo** (snapshot + restore) | Confirm-before-delete (no undo) |
+| **Notifications & tray** | Deadline/overdue notifications, system tray | — |
+| **Scheduled time** | `@time()` editable | Displayed, not editable |
+| **Theming / shortcuts** | Custom accent colour, fully customisable keybindings | Fixed ported palette; two commands (*Open Annado*, *Quick find*) |
+
+Most of these are **intentional non-goals** for a phone: the plugin's job is to let you
+capture, triage and manage tasks anywhere, and let the desktop own planning, review and
+the macOS-native pieces.
 
 ## Under the hood & contributing
 
