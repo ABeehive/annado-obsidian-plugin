@@ -1,0 +1,6 @@
+node_modules/
+main.js
+
+# local-only agent context (never publish)
+CLAUDE.md
+.superpowers/

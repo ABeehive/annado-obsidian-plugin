@@ -1,0 +1,1617 @@
+/* Annado Mobile — visual language ported from the desktop app.
+   Colors use Obsidian's theme CSS variables so the view adapts to light, dark
+   and community themes automatically. A handful of deliberate brand/signal
+   colors (per-project dots, priority/deadline/recurrence hues) stay hardcoded
+   and are marked with a /* signal */ or /* accent */ comment. The remaining
+   .theme-dark blocks encode a real design difference the variables can't. */
+
+.annado-view {
+  padding: 0;
+  /* Brand indigo — deliberately fixed, not theme-adaptive. Every
+     `var(--annado-primary, #5c6bc0)` fallback below in this file is this same
+     hardcoded value (the property is never redefined elsewhere), so those
+     fallbacks are the brand color repeated, not a guess at one. */
+  --annado-primary: #5c6bc0;
+  /* The tab bar is a fixed header; only .annado-body scrolls, so nothing can
+     ever render in a gap above the tabs. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Paint our own canvas: sidebar leaves sit on --background-secondary, and
+     without this the view's transparent areas go grey there while the tab bar
+     and rows stay white. Same look in a tab, a sidebar, and dark mode. */
+  background: var(--background-primary);
+}
+
+/* Beat Obsidian's own `.view-content { overflow: auto }` so the view never
+   scrolls — the body is the sole scroller. */
+.view-content.annado-view {
+  overflow: hidden;
+}
+
+/* ---- Tabs ---- */
+
+.annado-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+  background: var(--background-primary);
+  z-index: 2;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* Tabs scroll horizontally if they can't all fit; the add button is pinned
+   outside this container so it never scrolls away. */
+.annado-tab-scroll {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.annado-tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.annado-view button.annado-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 6px;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.annado-view button.annado-tab.is-active {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+/* In the right sidebar the tiles are too narrow for labels ("T.." etc.) —
+   show icons only. Purely structural: Obsidian wraps sidebar leaves in
+   .mod-right-split, so dragging the view back to a tab restores the labels. */
+.mod-right-split .annado-tab-label {
+  display: none;
+}
+
+.mod-right-split .annado-view button.annado-tab {
+  padding: 7px 4px;
+}
+
+.annado-tab-icon {
+  display: flex;
+}
+
+.annado-tab-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Pinned add button — top-right, always visible, never near the bottom bar. */
+.annado-view button.annado-add-top {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--annado-primary, #5c6bc0);
+  color: #fff; /* signal */
+  border: none;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.annado-view button.annado-add-top svg {
+  width: 20px;
+  height: 20px;
+  /* Force the on-accent color regardless of the mobile theme overriding the
+     button color (else currentColor collapses into the blue background and the
+     + vanishes). */
+  color: #fff; /* signal */
+  stroke: #fff; /* signal */
+}
+
+.annado-view button.annado-add-top:active {
+  filter: brightness(0.92);
+}
+
+/* Pinned search button — a filled secondary circle, same shape/size as the + so it
+   reads as a real button (distinct from the primary + rather than a faint ghost). */
+.annado-view button.annado-search-top {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  border: none;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.annado-view button.annado-search-top svg {
+  width: 20px;
+  height: 20px;
+}
+
+.annado-view button.annado-search-top:active {
+  filter: brightness(0.95);
+}
+
+/* Quick Find suggestion rows */
+.annado-find-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.annado-find-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+.annado-find-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.annado-find-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annado-find-kind {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* ---- Phone: icon-only tab tiles with a clear active state ---- */
+.is-phone .annado-tabs {
+  gap: 8px;
+}
+
+.is-phone .annado-tab-scroll {
+  gap: 6px;
+  overflow-x: visible;
+}
+
+.is-phone .annado-view button.annado-tab {
+  flex-direction: column;
+  padding: 9px 0;
+  border-radius: 12px;
+  background: var(--background-secondary);
+}
+
+.is-phone .annado-tab-label {
+  display: none;
+}
+
+.is-phone .annado-view button.annado-tab.is-active {
+  background: color-mix(in srgb, var(--annado-primary, #5c6bc0) 16%, var(--background-secondary));
+}
+
+.is-phone .annado-view button.annado-add-top,
+.is-phone .annado-view button.annado-search-top {
+  width: 40px;
+  height: 40px;
+}
+
+.is-phone .annado-tab-icon svg,
+.is-phone .annado-view button.annado-add-top svg,
+.is-phone .annado-view button.annado-search-top svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---- Body & header ---- */
+
+.annado-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  position: relative;
+  padding: 12px 16px 96px;
+}
+
+.annado-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 18px;
+}
+
+.annado-header-icon {
+  display: flex;
+}
+
+.annado-header-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.annado-header-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-normal);
+}
+
+.annado-header-count {
+  font-size: 15px;
+  color: var(--text-faint);
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.annado-detail-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ---- Project section headers ---- */
+
+.annado-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 4px;
+}
+
+.annado-section-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.annado-section-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-normal);
+  white-space: nowrap;
+}
+
+.annado-section-line {
+  flex: 1;
+  border-top: 1px solid var(--background-modifier-border);
+  margin-left: 4px;
+}
+
+/* ---- Task rows ---- */
+
+.annado-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 4px;
+  border-radius: 8px;
+  transition: opacity 0.25s ease;
+  cursor: pointer;
+}
+
+.annado-task:active {
+  background: var(--background-modifier-hover);
+}
+
+.annado-task.is-completing {
+  opacity: 0.35;
+}
+
+/* Round checkbox (20px circle, fills primary when completing) */
+.annado-view button.annado-check {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 1.5px solid var(--background-modifier-border);
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.annado-check-icon {
+  display: none;
+  /* Shown only inside a filled circle whose background is the fixed brand
+     indigo (button.annado-check.is-completing / .is-checked, both
+     var(--annado-primary)) — must not follow the theme. */
+  color: #fff; /* signal */
+}
+
+.annado-check-icon svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 3;
+}
+
+.annado-view .is-completing button.annado-check {
+  background: var(--annado-primary);
+  border-color: var(--annado-primary);
+}
+
+.is-completing .annado-check-icon {
+  display: flex;
+}
+
+@keyframes annado-check-pop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.annado-view .is-completing .annado-check-icon {
+  animation: annado-check-pop 0.28s ease;
+}
+
+/* Completed (Logbook) row: filled checkbox + struck-through title. */
+.annado-view button.annado-check.is-checked {
+  background: var(--annado-primary);
+  border-color: var(--annado-primary);
+}
+.annado-view button.annado-check.is-checked .annado-check-icon {
+  display: flex;
+}
+
+/* When pill */
+.annado-when-pill {
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-top: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.annado-section-icon {
+  display: flex;
+  color: #8e6ac8; /* accent */
+}
+
+.annado-section-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Duration / time */
+.annado-duration {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+/* Title */
+.annado-task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.annado-task-titleline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  row-gap: 3px;
+}
+
+.annado-priority {
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.annado-task-title {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.annado-task-title.is-done {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+.annado-task-title.is-editable {
+  cursor: text;
+}
+
+.annado-inline-input {
+  width: 100%;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  background: var(--background-primary);
+  border: 1px solid var(--annado-primary, #5c6bc0);
+  border-radius: 5px;
+  padding: 3px 6px;
+}
+
+.annado-notes-icon {
+  display: flex;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.annado-notes-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Person / project chips inside the title */
+.annado-person-chip,
+.annado-project-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  vertical-align: baseline;
+  white-space: nowrap;
+  max-width: 200px;
+  cursor: pointer;
+}
+
+.annado-person-chip {
+  background: color-mix(in srgb, var(--annado-primary, #5c6bc0) 14%, var(--background-primary));
+  color: var(--annado-primary);
+}
+
+/* Like the inline-code red: the fixed brand indigo chip text must lighten on
+   dark backgrounds to stay readable (ported dark: variant #8e99d9, ~5.5:1 vs
+   ~3.3:1 for #5c6bc0) — a real design difference the variables can't express. */
+.theme-dark .annado-person-chip,
+.theme-dark .annado-meta-chip {
+  color: #8e99d9; /* accent */
+}
+
+.annado-project-chip > span:last-child,
+.annado-person-chip > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.annado-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Tag pills (outlined, muted) */
+.annado-tag-pill {
+  font-size: 11px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Checklist count */
+.annado-checklist-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Right-side indicators */
+.annado-task-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.annado-recurrence-icon {
+  display: flex;
+  color: #43a047; /* signal */
+}
+
+.annado-recurrence-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.annado-deadline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.annado-mini-icon {
+  display: flex;
+}
+
+.annado-mini-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.annado-md-link {
+  color: var(--annado-primary);
+}
+
+/* ---- Swipe gestures (collapsed rows) ---- */
+.annado-swipe {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  touch-action: pan-y; /* browser owns vertical scroll; we take horizontal */
+}
+
+/* Foreground occludes the behind-layers at rest and slides on drag. */
+.annado-swipe > .annado-task {
+  position: relative;
+  z-index: 1;
+  background: var(--background-primary);
+  touch-action: pan-y; /* vertical-only native intent on the element that gets the touch */
+}
+/* Only promote the foreground to its own layer while actually swiping — a persistent
+   will-change layer desyncs from the behind-layers during scroll and flashes colour. */
+.annado-swipe.is-swiping > .annado-task {
+  will-change: transform;
+}
+
+/* The coloured behind-layers stay hidden until a swipe begins, so nothing shows through
+   during vertical scroll (or at rest). */
+.annado-swipe-complete,
+.annado-swipe-actions {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.annado-swipe.is-swiping .annado-swipe-complete,
+.annado-swipe.is-swiping .annado-swipe-actions {
+  opacity: 1;
+}
+.annado-swipe > .annado-task.is-snapping {
+  transition: transform 0.2s ease;
+}
+
+/* Right-swipe: green complete zone revealed on the left. */
+.annado-swipe-complete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 18px;
+  border-radius: 8px;
+  background: #43a047; /* signal */
+  color: #fff; /* signal */
+}
+.annado-swipe-check {
+  display: flex;
+}
+.annado-swipe-check svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 3;
+}
+
+/* Left-swipe: action buttons revealed on the right. */
+.annado-swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: stretch;
+  /* Width is set once in JS from ACTIONS_WIDTH (src/views/swipe.ts), which
+     swipeMath also reads for the reveal/snap thresholds. The fallback below
+     is defensive only (JS always sets the custom property before this is
+     visible) and must match ACTIONS_WIDTH there — src/views/swipe.ts is the
+     source of truth. */
+  width: var(--annado-actions-width, 160px);
+}
+.annado-view button.annado-swipe-action {
+  flex: 1;
+  /* Fill the full row height so the green complete zone never peeks around the
+     buttons (Obsidian's base button height would otherwise leave them short,
+     especially on taller multi-line rows). */
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  /* Both modifiers below (.is-reschedule, .is-delete — the only two used)
+     paint a fixed signal background; must not follow the theme. */
+  color: #fff; /* signal */
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.annado-view button.annado-swipe-action.is-reschedule {
+  background: #1e88e5; /* signal */
+}
+.annado-view button.annado-swipe-action.is-delete {
+  background: #e53935; /* signal */
+}
+.annado-swipe-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---- Projects / People list rows ---- */
+
+.annado-group-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 6px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+}
+
+.annado-group-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.annado-group-icon {
+  display: flex;
+  color: #00acc1; /* accent */
+}
+
+.annado-group-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.annado-group-name {
+  flex: 1;
+  font-size: 15px;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annado-group-count {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--background-modifier-hover);
+  border-radius: 10px;
+  padding: 1px 9px;
+}
+
+/* ---- Back button, empty state, FAB, modal ---- */
+
+.annado-view button.annado-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 2px 0 6px -8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 6px 8px;
+  font-size: 14px;
+  color: var(--annado-primary);
+  cursor: pointer;
+}
+
+.annado-view button.annado-back-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.annado-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 40px 16px;
+  text-align: center;
+}
+.annado-empty-icon {
+  color: var(--text-faint);
+}
+.annado-empty-icon svg {
+  width: 30px;
+  height: 30px;
+}
+.annado-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.annado-empty-sub {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.annado-log-footer {
+  padding: 12px 4px 4px;
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ---- Expanded task card ---- */
+
+.annado-task.is-expanded {
+  background: var(--background-secondary);
+}
+
+.annado-expanded {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+  cursor: default;
+}
+
+.annado-notes {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-bottom: 6px;
+}
+
+.annado-notes-empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.annado-notes.is-editable {
+  cursor: text;
+}
+
+.annado-inline-notes {
+  width: 100%;
+  min-height: 4.5em;
+  font-size: 13px;
+  line-height: 1.5;
+  color: inherit;
+  background: var(--background-primary);
+  border: 1px solid var(--annado-primary, #5c6bc0);
+  border-radius: 5px;
+  padding: 6px;
+  resize: vertical;
+}
+
+.annado-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 5px 0;
+}
+
+.annado-view button.annado-check-sub {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  margin-top: 1px;
+}
+
+.annado-view button.annado-check-sub.is-checked {
+  background: var(--annado-primary);
+  border-color: var(--annado-primary);
+}
+
+.annado-view button.annado-check-sub.is-checked .annado-check-icon {
+  display: flex;
+}
+
+.annado-view button.annado-check-sub .annado-check-icon svg {
+  width: 9px;
+  height: 9px;
+}
+
+.annado-checklist-title {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-normal);
+  overflow-wrap: anywhere;
+}
+
+.annado-checklist-title.is-done {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+
+.annado-section-name.is-clickable {
+  cursor: pointer;
+}
+
+/* ---- Markdown in notes / titles / checklist ---- */
+
+.annado-md-code {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--code-background);
+  color: #c7254e; /* signal */
+}
+
+.theme-dark .annado-md-code {
+  /* The inline-code red is a ported brand hue; it must lighten on dark so it
+     stays legible on the dark code background. */
+  color: #f4929f; /* signal */
+}
+
+.annado-md-bold {
+  font-weight: 600;
+}
+
+.annado-md-strike {
+  color: var(--text-faint);
+}
+
+.annado-md-h1,
+.annado-md-h2,
+.annado-md-h3 {
+  font-weight: 600;
+  color: var(--text-normal);
+  margin: 6px 0 2px;
+}
+
+.annado-md-h1 { font-size: 15px; font-weight: 700; }
+.annado-md-h2 { font-size: 14px; }
+.annado-md-h3 { font-size: 13px; }
+
+.annado-md-quote {
+  padding-left: 10px;
+  border-left: 2px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 2px 0;
+}
+
+.annado-md-li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.annado-md-bullet {
+  color: var(--text-muted);
+  font-size: 10px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.annado-md-gap {
+  height: 6px;
+}
+
+/* ---- Tree (nested Projects / Tags) ---- */
+
+.annado-tree-row {
+  gap: 8px;
+  /* --annado-depth is set in JS (renderTree); reproduces the old inline
+     paddingLeft = 6 + depth * 18 (px). */
+  padding-left: calc(6px + var(--annado-depth, 0) * 18px);
+}
+
+.annado-tree-chevron {
+  display: flex;
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.annado-tree-chevron svg {
+  width: 15px;
+  height: 15px;
+}
+
+.annado-tag-icon {
+  color: #8e6ac8; /* accent */
+}
+
+/* ---- Add-task modal ---- */
+
+.annado-modal {
+  max-width: 560px;
+  width: 92vw;
+  max-height: 85vh;
+  /* Size to content, overriding community themes (e.g. Velocity) that give .modal a
+     fixed/min height — otherwise the sticky footer drops to the bottom and leaves a big
+     empty band above it. */
+  height: auto !important;
+  min-height: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* contentEl (.modal-content) is the single scroll region; the Obsidian title
+   bar + close button stay fixed above it, the sticky footer below. */
+.annado-modal .modal-content {
+  overflow-y: auto;
+  min-height: 0;
+  /* Desktop: size to content so the footer sits right under the fields (no big empty
+     gap if the modal is given a tall height). Mobile overrides this to fill the sheet. */
+  flex: 0 1 auto;
+}
+
+/* Phone: a near-full-width sheet anchored below the notch (safe-area padding)
+   and above the home indicator, scrolling internally. Compact so most of the
+   form fits one screen. */
+.annado-modal-container-mobile {
+  align-items: flex-start;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.annado-modal.annado-modal-mobile {
+  width: 96vw;
+  max-width: none;
+  margin-top: 6px;
+  max-height: calc(100% - 12px);
+}
+
+.annado-modal-mobile .modal-content {
+  padding: 12px 16px;
+  flex: 1 1 auto; /* phone: fill the full-height sheet, footer above the keyboard */
+}
+
+.annado-modal-mobile .annado-add-title {
+  font-size: 16px;
+}
+
+.annado-modal-mobile .annado-title-row,
+.annado-modal-mobile .annado-notes-row {
+  margin-bottom: 10px;
+}
+
+/* ---- Title (circle + input, reads as a task) + notes (grey card) ---- */
+
+.annado-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.annado-title-circle {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--background-modifier-border);
+}
+
+.annado-modal .annado-add-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 600;
+  padding: 2px 0 2px 12px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.annado-modal input.annado-add-title,
+.annado-modal input.annado-add-title:focus,
+.annado-modal input.annado-add-title:hover {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.annado-notes-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: var(--background-secondary);
+}
+
+.annado-notes-glyph {
+  display: flex;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.annado-notes-glyph svg {
+  width: 15px;
+  height: 15px;
+}
+
+.annado-modal .annado-add-notes {
+  flex: 1;
+  min-width: 0;
+  min-height: 22px;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  resize: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.annado-modal textarea.annado-add-notes,
+.annado-modal textarea.annado-add-notes:focus,
+.annado-modal textarea.annado-add-notes:hover {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.annado-modal .annado-add-notes:focus {
+  color: var(--text-normal);
+}
+
+/* ---- Custom date picker (Obsidian mobile can't open native date inputs) ---- */
+.annado-datepicker .annado-dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.annado-datepicker .annado-dp-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.annado-datepicker button.annado-dp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.annado-datepicker button.annado-dp-nav:active {
+  background: var(--background-modifier-hover);
+}
+.annado-datepicker .annado-dp-weekdays,
+.annado-datepicker .annado-dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.annado-datepicker .annado-dp-weekdays {
+  margin-bottom: 4px;
+}
+.annado-datepicker .annado-dp-weekdays span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.annado-datepicker button.annado-dp-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-normal);
+}
+.annado-datepicker button.annado-dp-day:active {
+  background: var(--background-modifier-hover);
+}
+.annado-datepicker button.annado-dp-day.is-today {
+  color: var(--annado-primary, #5c6bc0);
+  font-weight: 700;
+}
+.annado-datepicker button.annado-dp-day.is-selected {
+  background: var(--annado-primary, #5c6bc0);
+  color: #fff; /* signal */
+}
+
+/* ---- Compact icon toolbar ---- */
+
+.annado-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.annado-modal button.annado-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-muted);
+  box-shadow: none;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.annado-modal button.annado-tool.is-set {
+  border-color: var(--tool-accent, var(--annado-primary, #5c6bc0));
+  color: var(--tool-accent, var(--annado-primary, #5c6bc0));
+}
+
+.annado-tool-icon {
+  display: flex;
+}
+
+.annado-tool-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.annado-tool-value {
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annado-tool-clear {
+  display: flex;
+  opacity: 0.6;
+}
+
+.annado-tool-clear svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ---- Tags ---- */
+
+.annado-tag-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.annado-tag-chips {
+  display: contents;
+}
+
+.annado-tag-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--annado-primary, #5c6bc0) 14%, var(--background-primary));
+  color: var(--annado-primary, #5c6bc0);
+}
+
+.annado-tag-remove {
+  display: flex;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.annado-tag-remove svg {
+  width: 11px;
+  height: 11px;
+}
+
+.annado-tag-input {
+  flex: 1;
+  min-width: 90px;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.annado-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+  /* Stay visible above the scrolling fields (and just above the keyboard). */
+  position: sticky;
+  bottom: 0;
+  background: var(--background-primary);
+}
+
+.annado-modal-footer button.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Color picker modal ---- */
+
+.annado-detail-dot.is-tappable {
+  cursor: pointer;
+}
+
+.annado-color-modal {
+  width: auto;
+  max-width: 320px;
+}
+
+.annado-color-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 44px);
+  gap: 10px;
+  justify-content: center;
+  padding: 6px 0 2px;
+}
+
+.annado-color-modal button.annado-color-swatch {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.annado-color-modal button.annado-color-swatch.is-current {
+  outline: 3px solid var(--text-normal);
+  outline-offset: 2px;
+}
+
+.annado-color-modal button.annado-color-default {
+  display: block;
+  margin: 14px auto 4px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.annado-color-modal button.annado-color-default.is-current {
+  outline: 2px solid var(--text-normal);
+  outline-offset: 1px;
+}
+
+/* ---- Upcoming day sections ---- */
+
+.annado-day-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 18px 0 2px;
+}
+
+.annado-day-number {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-normal);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.annado-day-rule {
+  flex: 1;
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 2px;
+}
+
+.annado-day-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.annado-month-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0 2px 8px;
+}
+
+.annado-month-label span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.annado-month-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--background-modifier-border);
+}
+
+/* Desktop/tablet: six tabs keep icon + label; let the label ellipsize if tight. */
+.annado-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Open-in-Obsidian affordances ---- */
+
+.annado-header-title.is-openable {
+  cursor: pointer;
+}
+
+.annado-header-open {
+  display: flex;
+  color: var(--annado-primary, #5c6bc0);
+  cursor: pointer;
+}
+
+.annado-header-open svg {
+  width: 17px;
+  height: 17px;
+}
+
+.annado-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.annado-view button.annado-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--annado-primary, #5c6bc0);
+  cursor: pointer;
+}
+
+.annado-view button.annado-card-action svg {
+  width: 17px;
+  height: 17px;
+}
+
+.annado-view button.annado-card-action.is-delete {
+  color: var(--text-error);
+}
+.annado-confirm-body {
+  color: var(--text-muted);
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.annado-when-pill.is-tappable {
+  cursor: pointer;
+}
+
+/* ---- Inline-edit sheet (mobile title/notes editor) ---- */
+
+.annado-inline-modal .annado-inline-modal-field {
+  width: 100%;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.annado-inline-modal textarea.annado-inline-modal-field {
+  min-height: 6em;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.annado-inline-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.annado-meta-card {
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--background-modifier-hover);
+}
+
+.annado-meta-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.annado-view button.annado-meta-chevron,
+.annado-view button.annado-meta-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.annado-view button.annado-meta-chevron svg,
+.annado-view button.annado-meta-open svg {
+  width: 15px;
+  height: 15px;
+}
+
+.annado-meta-summary {
+  font-size: 13px;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.annado-meta-desc {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.annado-meta-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  padding-left: 32px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.annado-meta-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.annado-meta-field.is-start {
+  color: #43a047; /* signal */
+}
+
+.annado-meta-field.is-ranking {
+  color: #f5c000; /* signal */
+}
+
+.annado-meta-persons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 32px;
+  color: var(--annado-primary, #5c6bc0);
+}
+
+.annado-meta-chip {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--annado-primary, #5c6bc0) 12%, var(--background-primary));
+  color: var(--annado-primary, #5c6bc0);
+  cursor: pointer;
+}
+
+.annado-meta-milestones {
+  margin-top: 10px;
+  padding-left: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.annado-meta-milestone {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+}
+
+.annado-ms-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+
+.annado-ms-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.annado-ms-icon.is-done {
+  color: var(--annado-primary, #5c6bc0);
+}
+
+.annado-ms-name.is-done {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+
+.annado-ms-date {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.annado-meta-person-fields {
+  padding-left: 0;
+  margin-top: 2px;
+}
+
+.annado-meta-field.is-org {
+  color: #1e88e5; /* signal */
+}
+
+.annado-meta-field.is-relation {
+  color: #8e6ac8; /* accent */
+}
+
+.annado-meta-field.is-languages {
+  color: #43a047; /* signal */
+}
