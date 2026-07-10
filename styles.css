@@ -2,8 +2,11 @@
    Colors use Obsidian's theme CSS variables so the view adapts to light, dark
    and community themes automatically. A handful of deliberate brand/signal
    colors (per-project dots, priority/deadline/recurrence hues) stay hardcoded
-   and are marked with a /* signal */ or /* accent */ comment. The remaining
-   .theme-dark blocks encode a real design difference the variables can't. */
+   and are marked with a "signal" or "accent" comment. (CSS comments don't
+   nest — never write the marker as comment syntax inside another comment; a
+   nested one ends this block early and the parser then eats the next rule.)
+   The remaining .theme-dark blocks encode a real design difference the
+   variables can't. */
 
 .annado-view {
   padding: 0;
@@ -24,9 +27,11 @@
 }
 
 /* Beat Obsidian's own `.view-content { overflow: auto }` so the view never
-   scrolls — the body is the sole scroller. */
+   scrolls — the body is the sole scroller. The explicit height pins the flex
+   chain even if the mobile shell stops sizing .view-content itself. */
 .view-content.annado-view {
   overflow: hidden;
+  height: 100%;
 }
 
 /* ---- Tabs ---- */
@@ -230,6 +235,8 @@
   min-height: 0;
   position: relative;
   padding: 12px 16px 96px;
+  /* Legacy iOS scroll hint; no-op on modern WebViews. */
+  -webkit-overflow-scrolling: touch;
 }
 
 .annado-header {
@@ -350,8 +357,8 @@
 }
 
 .annado-view .is-completing button.annado-check {
-  background: var(--annado-primary);
-  border-color: var(--annado-primary);
+  background: var(--annado-primary, #5c6bc0);
+  border-color: var(--annado-primary, #5c6bc0);
 }
 
 .is-completing .annado-check-icon {
@@ -369,8 +376,8 @@
 
 /* Completed (Logbook) row: filled checkbox + struck-through title. */
 .annado-view button.annado-check.is-checked {
-  background: var(--annado-primary);
-  border-color: var(--annado-primary);
+  background: var(--annado-primary, #5c6bc0);
+  border-color: var(--annado-primary, #5c6bc0);
 }
 .annado-view button.annado-check.is-checked .annado-check-icon {
   display: flex;
@@ -487,7 +494,7 @@
 
 .annado-person-chip {
   background: color-mix(in srgb, var(--annado-primary, #5c6bc0) 14%, var(--background-primary));
-  color: var(--annado-primary);
+  color: var(--annado-primary, #5c6bc0);
 }
 
 /* Like the inline-code red: the fixed brand indigo chip text must lighten on
@@ -570,7 +577,7 @@
 }
 
 .annado-md-link {
-  color: var(--annado-primary);
+  color: var(--annado-primary, #5c6bc0);
 }
 
 /* ---- Swipe gestures (collapsed rows) ---- */
@@ -735,7 +742,7 @@
   box-shadow: none;
   padding: 6px 8px;
   font-size: 14px;
-  color: var(--annado-primary);
+  color: var(--annado-primary, #5c6bc0);
   cursor: pointer;
 }
 
@@ -835,8 +842,8 @@
 }
 
 .annado-view button.annado-check-sub.is-checked {
-  background: var(--annado-primary);
-  border-color: var(--annado-primary);
+  background: var(--annado-primary, #5c6bc0);
+  border-color: var(--annado-primary, #5c6bc0);
 }
 
 .annado-view button.annado-check-sub.is-checked .annado-check-icon {
@@ -1047,7 +1054,7 @@
 .annado-notes-row {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
+  gap: 10px;
   padding: 9px 11px;
   margin-bottom: 12px;
   border-radius: 10px;
@@ -1071,7 +1078,9 @@
   min-height: 22px;
   font-size: 13px;
   color: var(--text-muted);
-  padding: 0;
+  /* Left indent aligns the note text with the title input's text, and keeps
+     the first glyph clear of the doc icon (it clipped on iOS at padding 0). */
+  padding: 0 0 0 12px;
   border: none;
   background: transparent;
   box-shadow: none;

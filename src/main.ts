@@ -1,4 +1,4 @@
-import { Plugin, PluginSettingTab, Setting, App, TFile, Notice, Platform, debounce } from 'obsidian';
+import { Plugin, PluginSettingTab, Setting, App, TFile, Notice, Platform, apiVersion, debounce } from 'obsidian';
 import { AnnadoSettings, DEFAULT_SETTINGS } from './settings';
 import { TaskIndex } from './data/index';
 import { toggleTask, toggleChecklistItem, createTask, updateTask, deleteTask, NewTaskInput, WriteResult } from './data/writer';
@@ -142,6 +142,14 @@ export default class AnnadoPlugin extends Plugin {
         if (view instanceof AnnadoView) view.openQuickFind();
       },
     });
+    // TEMPORARY (remove after the mobile scroll diagnosis): dumps the live
+    // layout numbers to a vault note so the phone's rendering can be read back
+    // on the desk via sync — Obsidian iOS has no inspectable webview.
+    this.addCommand({
+      id: 'layout-debug',
+      name: 'Layout debug (tijdelijk)',
+      callback: () => void this.writeLayoutDebug(),
+    });
     this.addSettingTab(new AnnadoSettingTab(this.app, this));
 
     // Scan once the vault is fully loaded, then keep the index incremental.
@@ -192,6 +200,62 @@ export default class AnnadoPlugin extends Plugin {
     if (!leaf) return;
     await leaf.setViewState({ type: VIEW_TYPE_ANNADO, active: true });
     await this.app.workspace.revealLeaf(leaf);
+  }
+
+  /** TEMPORARY (see the layout-debug command): write the numbers we can't see
+   *  on the phone into a note that syncs back to the desk. Read-only DOM
+   *  inspection + one vault write; safe to run anywhere. */
+  private async writeLayoutDebug(): Promise<void> {
+    const lines: string[] = [
+      `plugin: ${this.manifest.version}`,
+      `obsidian api: ${apiVersion}`,
+      `platform: phone=${Platform.isPhone} mobile=${Platform.isMobile} iosApp=${Platform.isIosApp}`,
+      `userAgent: ${navigator.userAgent}`,
+      `body classes: ${document.body.className}`,
+    ];
+    // Undocumented but stable internals; degrade to 'n/a' rather than throw.
+    const customCss = (this.app as unknown as { customCss?: { theme?: string; enabledSnippets?: Iterable<string> } }).customCss;
+    lines.push(`theme: ${customCss?.theme || '(default)'}`);
+    lines.push(`snippets: ${customCss?.enabledSnippets ? [...customCss.enabledSnippets].join(', ') || '(none)' : 'n/a'}`);
+
+    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_ANNADO)[0];
+    const view = leaf?.view;
+    if (view instanceof AnnadoView) {
+      const content = view.contentEl;
+      const cs = getComputedStyle(content);
+      lines.push(
+        '',
+        `contentEl classes: ${content.className}`,
+        `contentEl computed: display=${cs.display} overflow=${cs.overflow} height=${cs.height}`,
+        `--annado-primary resolves to: "${cs.getPropertyValue('--annado-primary').trim() || '(EMPTY)'}"`,
+      );
+      const body = content.querySelector('.annado-body');
+      if (body instanceof HTMLElement) {
+        const bs = getComputedStyle(body);
+        lines.push(
+          `annado-body: clientHeight=${body.clientHeight} scrollHeight=${body.scrollHeight} ` +
+            `overflow-y=${bs.overflowY} touch-action=${bs.touchAction}`,
+          `scrollable: ${body.scrollHeight > body.clientHeight}`,
+        );
+        let el: HTMLElement | null = body;
+        for (let depth = 0; el && depth < 5; depth++, el = el.parentElement) {
+          lines.push(
+            `  up${depth}: <${el.tagName.toLowerCase()} class="${el.className}"> offsetHeight=${el.offsetHeight}`,
+          );
+        }
+      } else {
+        lines.push('annado-body: NOT FOUND');
+      }
+    } else {
+      lines.push('', 'Annado view is not open — open it first, then rerun this command.');
+    }
+
+    const text = '```\n' + lines.join('\n') + '\n```\n';
+    const path = 'Annado Debug.md';
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile) await this.app.vault.process(existing, () => text);
+    else await this.app.vault.create(path, text);
+    new Notice('Annado debug weggeschreven');
   }
 
   async toggleTask(task: Task, complete: boolean): Promise<WriteResult> {
