@@ -77,6 +77,15 @@ Anytime, Someday and Logbook live behind the **⋯ More** button:
   week, or pick any date on the tap calendar.
 - **Open in Obsidian** — jump straight to the task's line in your note.
 
+## Follows your theme
+
+The plugin is styled with Obsidian's own theme variables, so it adapts to light mode,
+dark mode and community themes automatically:
+
+| Today | Inbox | Inside a person |
+|:--:|:--:|:--:|
+| <img src="images/today-dark.png" width="240" alt="The Today view in dark mode"> | <img src="images/inbox-dark.png" width="240" alt="The Inbox in dark mode"> | <img src="images/person-detail-dark.png" width="240" alt="A person's detail view in dark mode"> |
+
 ## How your tasks are stored
 
 A task is one checkbox line in any note, with optional details inline:
