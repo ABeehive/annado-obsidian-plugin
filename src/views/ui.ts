@@ -23,6 +23,7 @@ export const PROJECT_COLORS = [
   '#EF5350', // Coral
   '#7E57C2', // Deep Purple
   '#26C6DA', // Light Cyan
+  '#BDBDBD', // Grey
 ];
 
 export const DEFAULT_ACCENT = '#5C6BC0';
@@ -94,9 +95,33 @@ export function projectColor(name: string): string {
   return PROJECT_COLORS[Math.abs(h) % PROJECT_COLORS.length]!;
 }
 
-/** Tag color from shared.json (keys are lowercase there), or null. */
-export function tagColor(name: string): string | null {
-  return tagColorOverrides[name.toLowerCase()] ?? null;
+/** Consumer default for tags with no override — the desktop renders those
+ *  indigo too (getTagColor's fallback). */
+export const DEFAULT_TAG_COLOR = '#5C6BC0';
+
+/** Tag color from shared.json. Port of the desktop's resolveTagColor
+ *  (src/utils/projectColors.ts): lowercase lookup, then nested tags inherit
+ *  the nearest ancestor's color (`a/b/c` → `a/b` → `a`), then an exact-key
+ *  lookup so legacy pre-lowercase keys still resolve, else the default. */
+export function tagColor(name: string): string {
+  let key = name.toLowerCase();
+  for (;;) {
+    const c = tagColorOverrides[key];
+    if (c !== undefined) return c;
+    const slash = key.lastIndexOf('/');
+    if (slash < 0) break;
+    key = key.slice(0, slash);
+  }
+  return tagColorOverrides[name] ?? DEFAULT_TAG_COLOR;
+}
+
+/** One tint treatment for every tag chip/pill: colored text on a ~12% wash.
+ *  Assumes a 6-digit #rrggbb value — all the desktop writes today; anything
+ *  else renders the text color with a garbled-but-harmless background. */
+export function tintTag(el: HTMLElement, tag: string): void {
+  const c = tagColor(tag);
+  el.style.color = c;
+  el.style.background = `${c}1f`;
 }
 
 // ---- Date labels (port of formatWhenDisplay / formatDeadlineCountdown) ----

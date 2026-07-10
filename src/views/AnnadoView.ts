@@ -24,6 +24,7 @@ import {
   PRIORITY_CONFIG,
   projectColor,
   tagColor,
+  tintTag,
   formatWhenLabel,
   deadlineDisplay,
   formatDurationShort,
@@ -485,6 +486,36 @@ export class AnnadoView extends ItemView {
 
   // ---- Detail view (drill-in for a project / person / tag) ----
 
+  /** Shared color-edit flow for the tappable project dot and tag icon: guard
+   *  on the desktop integration being on, then open the palette modal.
+   *  `current`/`hasOverride` are thunks so the modal reflects the state at tap
+   *  time, not at render time. */
+  private wireColorPicker(
+    el: HTMLElement,
+    opts: {
+      title: string;
+      current: () => string;
+      hasOverride: () => boolean;
+      save: (color: string | null) => Promise<void>;
+    },
+  ): void {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.plugin.shared === null) {
+        // No shared.json = desktop integration off; the plugin never creates
+        // the file (hardened contract), so color editing is unavailable.
+        new Notice('Color sync is off — enable the vault toggle in the desktop app.');
+        return;
+      }
+      new ColorPickerModal(this.app, {
+        title: opts.title,
+        current: opts.current(),
+        hasOverride: opts.hasOverride(),
+        onChoose: (color) => void opts.save(color),
+      }).open();
+    });
+  }
+
   private renderDetail(body: HTMLElement, tab: MainTab, name: string, tasks: Task[]): void {
     const back = body.createEl('button', { cls: 'annado-back-btn' });
     setIcon(back.createSpan(), 'chevron-left');
@@ -509,24 +540,31 @@ export class AnnadoView extends ItemView {
         attr: { 'aria-label': 'Change project color' },
       });
       dot.style.backgroundColor = projectColor(name);
-      dot.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (this.plugin.shared === null) {
-          // No shared.json = desktop integration off; the plugin never creates
-          // the file (hardened contract), so color editing is unavailable.
-          new Notice('Color sync is off — enable the vault toggle in the desktop app.');
-          return;
-        }
-        new ColorPickerModal(this.app, {
-          title: name,
-          current: projectColor(name),
-          hasOverride: this.plugin.shared?.projectColors[name] !== undefined,
-          onChoose: (color) => void this.plugin.saveProjectColor(name, color),
-        }).open();
+      this.wireColorPicker(dot, {
+        title: name,
+        current: () => projectColor(name),
+        hasOverride: () => this.plugin.shared?.projectColors[name] !== undefined,
+        save: (color) => this.plugin.saveProjectColor(name, color),
+      });
+    } else if (tab === 'tags') {
+      const iconEl = header.createSpan({
+        cls: 'annado-header-icon is-tappable',
+        attr: { 'aria-label': 'Change tag color' },
+      });
+      setIcon(iconEl, 'tag');
+      iconEl.style.color = tagColor(name);
+      this.wireColorPicker(iconEl, {
+        title: '#' + name,
+        current: () => tagColor(name),
+        // Own-key check (not the resolved color): a nested tag inheriting its
+        // parent's color still shows "Default", and Default clears only this
+        // tag's own entry — same semantics as the desktop.
+        hasOverride: () => this.plugin.shared?.tagColors[name.toLowerCase()] !== undefined,
+        save: (color) => this.plugin.saveTagColor(name, color),
       });
     } else {
       const iconEl = header.createSpan({ cls: 'annado-header-icon' });
-      setIcon(iconEl, tab === 'people' ? 'user' : 'tag');
+      setIcon(iconEl, 'user');
       iconEl.style.color = VIEW_META[tab].color;
     }
     const title = header.createEl('h1', { text: name, cls: 'annado-header-title' });
@@ -869,7 +907,11 @@ export class AnnadoView extends ItemView {
       if (kind === 'projects') {
         row.createSpan({ cls: 'annado-group-dot' }).style.backgroundColor = projectColor(node.name);
       } else {
-        setIcon(row.createSpan({ cls: 'annado-group-icon annado-tag-icon' }), 'tag');
+        const icon = row.createSpan({ cls: 'annado-group-icon' });
+        setIcon(icon, 'tag');
+        // node.name is the full slash path, so collapsed parents and children
+        // resolve their own (or inherited) color like the desktop sidebar.
+        icon.style.color = tagColor(node.name);
       }
 
       row.createSpan({ cls: 'annado-group-name', text: node.label });
@@ -1060,13 +1102,7 @@ export class AnnadoView extends ItemView {
     if (task.notes !== '') setIcon(titleLine.createSpan({ cls: 'annado-notes-icon' }), 'file-text');
     for (const tag of task.tags) {
       const pill = titleLine.createSpan({ cls: 'annado-tag-pill', text: tag });
-      const tc = tagColor(tag);
-      if (tc !== null) {
-        pill.style.color = tc;
-        // ~12% alpha tint. Assumes a 6-digit #rrggbb value — all the desktop
-        // writes today; anything else silently drops the background only.
-        pill.style.background = `${tc}1f`;
-      }
+      tintTag(pill, tag);
       pill.addEventListener('click', (e) => {
         e.stopPropagation();
         this.openTag(tag);

@@ -2,7 +2,7 @@ import { App, Modal, Menu, AbstractInputSuggest, setIcon } from 'obsidian';
 import { WhenValue, Task } from '../parser/types';
 import { todayISO } from '../parser/dates';
 import { NewTaskInput } from '../data/writer';
-import { PRIORITY_CONFIG, formatDurationShort, formatWhenLabel } from './ui';
+import { PRIORITY_CONFIG, formatDurationShort, formatWhenLabel, tagColor, tintTag } from './ui';
 import { showWhenMenu, showDeadlineMenu } from './whenMenu';
 import { DatePickerModal } from './DatePickerModal';
 import { mergeEditedProjects } from './projectEdit';
@@ -46,6 +46,7 @@ class TagSuggest extends AbstractInputSuggest<string> {
 
   renderSuggestion(tag: string, el: HTMLElement): void {
     el.setText(`#${tag}`);
+    el.style.color = tagColor(tag);
   }
 
   selectSuggestion(tag: string): void {
@@ -353,6 +354,7 @@ export class AddTaskModal extends Modal {
     this.tagChipsEl.empty();
     for (const tag of this.selectedTags) {
       const chip = this.tagChipsEl.createSpan({ cls: 'annado-tag-selected' });
+      tintTag(chip, tag);
       chip.createSpan({ text: `#${tag}` });
       const x = chip.createSpan({ cls: 'annado-tag-remove' });
       setIcon(x, 'x');

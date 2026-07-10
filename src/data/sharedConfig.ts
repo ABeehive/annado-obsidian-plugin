@@ -71,19 +71,36 @@ export function applySharedToSettings(local: AnnadoSettings, shared: SharedConfi
 }
 
 /** Produce the JSON text to write after setting (color) or clearing (null) one
- *  project's color. Read-modify-write: preserves schemaVersion and every field we
- *  don't own (including unknown future ones); stamps generatedBy annado-mobile.
- *  A missing or malformed source becomes a minimal valid document. */
-export function withProjectColor(text: string | null, name: string, color: string | null): string {
+ *  entry in a color map. Read-modify-write: preserves schemaVersion and every
+ *  field we don't own (including unknown future ones — and the *other* color
+ *  map); stamps generatedBy annado-mobile. A missing or malformed source
+ *  becomes a minimal valid document. */
+function withColorEntry(
+  text: string | null,
+  mapField: 'projectColors' | 'tagColors',
+  key: string,
+  color: string | null,
+): string {
   const parsed = text === null ? null : parseSharedConfig(text);
   const base: Record<string, unknown> = parsed ? { ...parsed.raw } : { schemaVersion: 1 };
   if (base['schemaVersion'] === undefined) base['schemaVersion'] = 1;
-  const colors = stringRecord(base['projectColors']);
-  if (color === null) delete colors[name];
-  else colors[name] = color;
-  base['projectColors'] = colors;
+  const colors = stringRecord(base[mapField]);
+  if (color === null) delete colors[key];
+  else colors[key] = color;
+  base[mapField] = colors;
   base['generatedBy'] = 'annado-mobile';
   return JSON.stringify(base, null, 2);
+}
+
+/** Set/clear one project's color. Project keys are exact-case basenames. */
+export function withProjectColor(text: string | null, name: string, color: string | null): string {
+  return withColorEntry(text, 'projectColors', name, color);
+}
+
+/** Set/clear one tag's color. Tag keys are lowercase per the contract (the
+ *  desktop lowercases on write too, so a color applies to every casing). */
+export function withTagColor(text: string | null, name: string, color: string | null): string {
+  return withColorEntry(text, 'tagColors', name.toLowerCase(), color);
 }
 
 // ---- Adapter I/O (thin; verified by build + live QA, not unit tests) ----

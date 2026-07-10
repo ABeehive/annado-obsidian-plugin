@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySharedToSettings, parseSharedConfig, withProjectColor } from '../src/data/sharedConfig';
+import { applySharedToSettings, parseSharedConfig, withProjectColor, withTagColor } from '../src/data/sharedConfig';
 import { DEFAULT_SETTINGS } from '../src/settings';
 
 const FULL = JSON.stringify({
@@ -129,5 +129,44 @@ describe('withProjectColor', () => {
     const out = JSON.parse(withProjectColor('{"schemaVersion":3,"futureField":[1,2]}', 'A', '#111111'));
     expect(out.schemaVersion).toBe(3);
     expect(out.futureField).toEqual([1, 2]);
+  });
+});
+
+describe('withTagColor', () => {
+  it('sets a color under a lowercased key and stamps generatedBy, preserving everything else', () => {
+    const out = JSON.parse(withTagColor(FULL, 'Admin', '#E53935'));
+    expect(out.tagColors).toEqual({ design: '#5aa9e6', admin: '#E53935' });
+    expect(out.generatedBy).toBe('annado-mobile');
+    expect(out.schemaVersion).toBe(1);
+    expect(out.excludedPaths).toEqual(['Archive/', 'Templates/Meeting.md']);
+    expect(out.projectColors).toEqual({ 'Website Redesign': '#e84545' });
+    expect(out.inheritFrontmatterTags).toBe(false);
+    expect(out.taskFormat).toBe('obsidian_tasks');
+  });
+
+  it('changes an existing color', () => {
+    const out = JSON.parse(withTagColor(FULL, 'design', '#1E88E5'));
+    expect(out.tagColors).toEqual({ design: '#1E88E5' });
+  });
+
+  it('null removes the override, via any casing of the name', () => {
+    const out = JSON.parse(withTagColor(FULL, 'Design', null));
+    expect(out.tagColors).toEqual({});
+  });
+
+  it('builds a minimal valid document from a missing file', () => {
+    const out = JSON.parse(withTagColor(null, 'a', '#111111'));
+    expect(out).toEqual({ schemaVersion: 1, generatedBy: 'annado-mobile', tagColors: { a: '#111111' } });
+  });
+
+  it('builds a minimal valid document from a malformed file (never propagates garbage)', () => {
+    const out = JSON.parse(withTagColor('not json {', 'a', '#111111'));
+    expect(out).toEqual({ schemaVersion: 1, generatedBy: 'annado-mobile', tagColors: { a: '#111111' } });
+  });
+
+  it('never touches projectColors', () => {
+    const out = JSON.parse(withTagColor(FULL, 'Website Redesign', '#000000'));
+    expect(out.projectColors).toEqual({ 'Website Redesign': '#e84545' });
+    expect(out.tagColors['website redesign']).toBe('#000000');
   });
 });

@@ -1,6 +1,6 @@
 import { App, FuzzySuggestModal, FuzzyMatch, setIcon } from 'obsidian';
 import { Task } from '../parser/types';
-import { projectColor } from './ui';
+import { projectColor, tagColor } from './ui';
 
 export type FindItem =
   | { kind: 'task'; task: Task }
@@ -49,6 +49,7 @@ export class QuickFind extends FuzzySuggestModal<FindItem> {
       el.createSpan({ cls: 'annado-find-label', text: item.name });
     } else {
       setIcon(icon, 'tag');
+      icon.style.color = tagColor(item.name);
       el.createSpan({ cls: 'annado-find-label', text: item.name });
     }
     el.createSpan({ cls: 'annado-find-kind', text: item.kind });

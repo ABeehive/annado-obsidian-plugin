@@ -5,6 +5,7 @@ import {
   projectColor,
   setColorOverrides,
   tagColor,
+  DEFAULT_TAG_COLOR,
   PROJECT_COLORS,
   formatWhenLabel,
   deadlineDisplay,
@@ -44,13 +45,28 @@ describe('color overrides', () => {
     expect(projectColor('Website Redesign')).toBe(fallback);
   });
 
-  it('tagColor is a lowercase lookup and null without an override', () => {
+  it('tagColor is a case-insensitive lookup', () => {
     setColorOverrides({}, { design: '#5aa9e6' });
     expect(tagColor('design')).toBe('#5aa9e6');
     expect(tagColor('Design')).toBe('#5aa9e6');
-    expect(tagColor('other')).toBeNull();
+  });
+
+  it('nested tags inherit the nearest ancestor color', () => {
+    setColorOverrides({}, { inbox: '#e53935' });
+    expect(tagColor('Inbox/To-Read')).toBe('#e53935');
+    setColorOverrides({}, { a: '#111111', 'a/b': '#222222' });
+    expect(tagColor('a/b/c')).toBe('#222222');
+  });
+
+  it('falls back to the exact key for legacy pre-lowercase entries', () => {
+    setColorOverrides({}, { Design: '#333333' });
+    expect(tagColor('Design')).toBe('#333333');
+  });
+
+  it('defaults to indigo without an override, like the desktop', () => {
     setColorOverrides({}, {});
-    expect(tagColor('design')).toBeNull();
+    expect(tagColor('anything')).toBe(DEFAULT_TAG_COLOR);
+    expect(DEFAULT_TAG_COLOR).toBe('#5C6BC0');
   });
 });
 

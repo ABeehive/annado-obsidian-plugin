@@ -10,6 +10,7 @@ import {
   readSharedTextAt,
   statSharedConfig,
   withProjectColor,
+  withTagColor,
 } from './data/sharedConfig';
 import { setColorOverrides } from './views/ui';
 import { AnnadoView, VIEW_TYPE_ANNADO } from './views/AnnadoView';
@@ -79,9 +80,13 @@ export default class AnnadoPlugin extends Plugin {
     await this.reloadSharedConfig();
   }
 
-  /** Write one project color to shared.json (read-modify-write per the desktop
-   *  contract) and apply it locally. Last-write-wins; the desktop picks it up. */
-  async saveProjectColor(name: string, color: string | null): Promise<void> {
+  /** Write one color-map change to shared.json (read-modify-write per the
+   *  desktop contract) and apply it locally. Last-write-wins; the desktop picks
+   *  it up. Shared by the project- and tag-color flows. */
+  private async saveSharedColor(
+    makeNext: (text: string) => string,
+    failNotice: string,
+  ): Promise<void> {
     try {
       const found = await readSharedTextAt(this.app, this.manifest.dir);
       if (found === null) {
@@ -90,7 +95,7 @@ export default class AnnadoPlugin extends Plugin {
         new Notice('Color sync is off — enable the vault toggle in the desktop app.');
         return;
       }
-      const next = withProjectColor(found.text, name, color);
+      const next = makeNext(found.text);
       // Write back to whichever path the read succeeded on (primary or legacy)
       // so we never fork the file into two locations.
       await this.app.vault.adapter.write(found.path, next);
@@ -103,8 +108,22 @@ export default class AnnadoPlugin extends Plugin {
       this.applySharedState();
       this.refreshViews();
     } catch {
-      new Notice('Could not save the project color.');
+      new Notice(failNotice);
     }
+  }
+
+  async saveProjectColor(name: string, color: string | null): Promise<void> {
+    await this.saveSharedColor(
+      (text) => withProjectColor(text, name, color),
+      'Could not save the project color.',
+    );
+  }
+
+  async saveTagColor(name: string, color: string | null): Promise<void> {
+    await this.saveSharedColor(
+      (text) => withTagColor(text, name, color),
+      'Could not save the tag color.',
+    );
   }
 
   async onload(): Promise<void> {
