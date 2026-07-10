@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { applySharedToSettings, parseSharedConfig, withProjectColor, withTagColor } from '../src/data/sharedConfig';
-import { DEFAULT_SETTINGS } from '../src/settings';
+import {
+  applyPendingEdits,
+  applySharedToSettings,
+  parseSharedConfig,
+  withProjectColor,
+  withTagColor,
+} from '../src/data/sharedConfig';
+import { DEFAULT_SETTINGS, PendingColorEdit } from '../src/settings';
 
 const FULL = JSON.stringify({
   schemaVersion: 1,
@@ -168,5 +174,58 @@ describe('withTagColor', () => {
     const out = JSON.parse(withTagColor(FULL, 'Website Redesign', '#000000'));
     expect(out.projectColors).toEqual({ 'Website Redesign': '#e84545' });
     expect(out.tagColors['website redesign']).toBe('#000000');
+  });
+});
+
+describe('applyPendingEdits', () => {
+  const BATCH: PendingColorEdit[] = [
+    { kind: 'project', name: 'New Project', color: '#43A047' },
+    { kind: 'tag', name: 'Admin', color: '#E53935' },
+    { kind: 'project', name: 'Website Redesign', color: null },
+  ];
+
+  it('returns the text verbatim for an empty batch', () => {
+    expect(applyPendingEdits(FULL, [])).toBe(FULL);
+  });
+
+  it('a single edit matches the underlying with*Color output', () => {
+    expect(applyPendingEdits(FULL, [{ kind: 'project', name: 'A', color: '#111111' }])).toBe(
+      withProjectColor(FULL, 'A', '#111111'),
+    );
+    expect(applyPendingEdits(FULL, [{ kind: 'tag', name: 'Admin', color: '#111111' }])).toBe(
+      withTagColor(FULL, 'Admin', '#111111'),
+    );
+  });
+
+  it('applies a mixed batch in order, preserving foreign fields and stamping generatedBy', () => {
+    const out = JSON.parse(applyPendingEdits(FULL, BATCH));
+    expect(out.projectColors).toEqual({ 'New Project': '#43A047' }); // set + cleared original
+    expect(out.tagColors).toEqual({ design: '#5aa9e6', admin: '#E53935' }); // tag key lowercased
+    expect(out.generatedBy).toBe('annado-mobile');
+    expect(out.schemaVersion).toBe(1);
+    expect(out.excludedPaths).toEqual(['Archive/', 'Templates/Meeting.md']);
+  });
+
+  it('is idempotent: reapplying a batch to its own output is a fixpoint', () => {
+    const once = applyPendingEdits(FULL, BATCH);
+    expect(applyPendingEdits(once, BATCH)).toBe(once);
+  });
+
+  it('a later edit to the same key wins', () => {
+    const out = JSON.parse(
+      applyPendingEdits(FULL, [
+        { kind: 'tag', name: 'x', color: '#111111' },
+        { kind: 'tag', name: 'X', color: '#222222' },
+      ]),
+    );
+    expect(out.tagColors['x']).toBe('#222222');
+  });
+
+  it('builds a minimal valid document from malformed base text', () => {
+    const out = JSON.parse(applyPendingEdits('not json {', BATCH));
+    expect(out.schemaVersion).toBe(1);
+    expect(out.generatedBy).toBe('annado-mobile');
+    expect(out.projectColors).toEqual({ 'New Project': '#43A047' });
+    expect(out.tagColors).toEqual({ admin: '#E53935' });
   });
 });

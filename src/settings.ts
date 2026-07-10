@@ -1,6 +1,15 @@
 import { TaskFormat } from './parser/taskformat';
 import { DEFAULT_PROJECTS_PATTERN } from './parser/parser';
 
+/** One queued color change made on a device where shared.json isn't reachable
+ *  (see sharedMirror below). Lives here rather than in data/sharedConfig.ts to
+ *  avoid an import cycle — sharedConfig already imports from this module. */
+export interface PendingColorEdit {
+  kind: 'project' | 'tag';
+  name: string;
+  color: string | null;
+}
+
 export interface AnnadoSettings {
   /** Folders whose path contains this string are scanned for project files. */
   projectsPattern: string;
@@ -17,6 +26,14 @@ export interface AnnadoSettings {
   taskMarker: string;
   /** Exclusion list, one entry per line: `Archive/` (folder) or `Notes/File.md`. */
   excludedPaths: string[];
+  /** Verbatim shared.json text, carried inside data.json because Obsidian Sync
+   *  syncs plugin settings but NOT extra files in the plugin folder — so a
+   *  phone can resolve the desktop-shared config from this mirror. Written by
+   *  the device that can read shared.json; null when integration is off. */
+  sharedMirror: string | null;
+  /** Color edits made on a mirror-only device, waiting for a device that can
+   *  reach shared.json to apply them (the relay). */
+  pendingColorEdits: PendingColorEdit[];
 }
 
 export const DEFAULT_SETTINGS: AnnadoSettings = {
@@ -27,7 +44,29 @@ export const DEFAULT_SETTINGS: AnnadoSettings = {
   taskFormat: 'annado',
   taskMarker: '',
   excludedPaths: [],
+  sharedMirror: null,
+  pendingColorEdits: [],
 };
+
+/** Merge a loaded data.json object over the defaults. The two sync-plumbing
+ *  fields get sanitized: data.json is rewritten by Obsidian Sync from other
+ *  devices (and possibly other plugin versions), so their shapes can't be
+ *  trusted the way the settings tab's own writes can. */
+export function mergeSettings(loaded: unknown): AnnadoSettings {
+  const raw = (loaded ?? {}) as Record<string, unknown>;
+  const merged: AnnadoSettings = { ...DEFAULT_SETTINGS, ...(raw as Partial<AnnadoSettings>) };
+  merged.sharedMirror = typeof raw['sharedMirror'] === 'string' ? raw['sharedMirror'] : null;
+  const edits = Array.isArray(raw['pendingColorEdits']) ? raw['pendingColorEdits'] : [];
+  merged.pendingColorEdits = edits.filter(
+    (e: unknown): e is PendingColorEdit =>
+      typeof e === 'object' &&
+      e !== null &&
+      ((e as PendingColorEdit).kind === 'project' || (e as PendingColorEdit).kind === 'tag') &&
+      typeof (e as PendingColorEdit).name === 'string' &&
+      (typeof (e as PendingColorEdit).color === 'string' || (e as PendingColorEdit).color === null),
+  );
+  return merged;
+}
 
 /** Port of Vault::is_path_excluded — `relative` is a vault-relative path. */
 export function isPathExcluded(relative: string, excludedPaths: string[]): boolean {

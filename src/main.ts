@@ -1,5 +1,5 @@
 import { Plugin, PluginSettingTab, Setting, App, TFile, Notice, Platform, debounce } from 'obsidian';
-import { AnnadoSettings, DEFAULT_SETTINGS } from './settings';
+import { AnnadoSettings, DEFAULT_SETTINGS, PendingColorEdit, mergeSettings } from './settings';
 import { TaskIndex } from './data/index';
 import { toggleTask, toggleChecklistItem, createTask, updateTask, deleteTask, NewTaskInput, WriteResult } from './data/writer';
 import {
@@ -9,8 +9,7 @@ import {
   readSharedText,
   readSharedTextAt,
   statSharedConfig,
-  withProjectColor,
-  withTagColor,
+  applyPendingEdits,
 } from './data/sharedConfig';
 import { setColorOverrides } from './views/ui';
 import { AnnadoView, VIEW_TYPE_ANNADO } from './views/AnnadoView';
@@ -21,10 +20,15 @@ export default class AnnadoPlugin extends Plugin {
   settings: AnnadoSettings = DEFAULT_SETTINGS;
   index!: TaskIndex;
 
-  /** Parsed shared.json (desktop sync), or null when absent. */
+  /** Parsed shared config (desktop sync), or null when unavailable. */
   shared: SharedConfig | null = null;
-  private lastSharedText: string | null = null;
+  /** Where `shared` came from: the real shared.json ('file'), or the data.json
+   *  mirror ('mirror' — this device can't reach the file; Obsidian Sync doesn't
+   *  carry extra plugin-folder files to mobile, see settings.sharedMirror). */
+  sharedSource: 'file' | 'mirror' | null = null;
+  private lastAppliedSharedText: string | null = null;
   private lastSharedMtime: number | null = null;
+  private lastDataMtime: number | null = null;
 
   private refreshViews = debounce(
     () => {
@@ -46,20 +50,57 @@ export default class AnnadoPlugin extends Plugin {
     setColorOverrides(this.shared?.projectColors ?? {}, this.shared?.tagColors ?? {});
   }
 
-  /** Re-read shared.json. Content-equality guard: identical text is a no-op.
-   *  Malformed content keeps the previous config (never wipe); an absent file
-   *  clears it (back to local settings + hash colors). A change to any of the
-   *  three parser settings rescans the index; color-only changes just re-render. */
+  /** Adopt a shared-config text as current state (malformed keeps the previous
+   *  parse — never wipe), remember it for the equality guard, and repaint. */
+  private applyResolvedShared(text: string, source: 'file' | 'mirror'): void {
+    this.lastAppliedSharedText = text;
+    const parsed = parseSharedConfig(text);
+    if (parsed !== null) this.shared = parsed;
+    this.sharedSource = source;
+    this.applySharedState();
+    this.refreshViews();
+  }
+
+  /** Re-resolve the shared config: from shared.json when readable, else from
+   *  the data.json mirror (the phone's path). Content-equality guard: same
+   *  text from the same source is a no-op. Malformed content keeps the
+   *  previous config (never wipe); nothing at all clears it (back to local
+   *  settings + hash colors). A change to any of the three parser settings
+   *  rescans the index; color-only changes just re-render. */
   async reloadSharedConfig(): Promise<void> {
-    const text = await readSharedText(this.app, this.manifest.dir);
-    if (text === this.lastSharedText) return;
+    const fileText = await readSharedText(this.app, this.manifest.dir);
+    if (fileText === null && this.sharedSource === 'file') {
+      // Toggle-off witnessed: only the device that HAD the file and saw it
+      // vanish drops the carried state — a mirror device never had the file,
+      // so sync delivering the cleared mirror is what turns IT off.
+      this.settings.sharedMirror = null;
+      this.settings.pendingColorEdits = [];
+      await this.persistSettings();
+    }
+    const source: 'file' | 'mirror' | null =
+      fileText !== null ? 'file' : this.settings.sharedMirror !== null ? 'mirror' : null;
+    const text = fileText ?? this.settings.sharedMirror;
+    if (text === this.lastAppliedSharedText && source === this.sharedSource) return;
     const before = this.effectiveSettings;
-    this.lastSharedText = text;
+    this.lastAppliedSharedText = text;
     if (text === null) {
       this.shared = null;
+      this.sharedSource = null;
+      if (this.settings.pendingColorEdits.length > 0) {
+        // Integration is off everywhere we can see — don't hold edits forever.
+        this.settings.pendingColorEdits = [];
+        await this.persistSettings();
+      }
     } else {
       const parsed = parseSharedConfig(text);
       if (parsed !== null) this.shared = parsed;
+      this.sharedSource = source;
+      if (source === 'file' && parsed !== null && this.settings.sharedMirror !== text) {
+        // Mirror maintenance: carry the (valid) file text to devices that can't
+        // read the file. Never enqueues edits, so this can't loop.
+        this.settings.sharedMirror = text;
+        await this.persistSettings();
+      }
     }
     this.applySharedState();
     const after = this.effectiveSettings;
@@ -71,64 +112,109 @@ export default class AnnadoPlugin extends Plugin {
     else this.refreshViews();
   }
 
-  /** Cheap mtime check so the 30s poll doesn't re-read unchanged content. */
-  private async pollSharedConfig(): Promise<void> {
-    const stat = await statSharedConfig(this.app, this.manifest.dir);
+  /** Obsidian never tells a plugin when Sync rewrites its data.json — detect
+   *  it by mtime and re-ingest (fresh mirror, arrived or cleared pending
+   *  edits, possibly changed settings). Our own writes are suppressed via
+   *  trackDataMtime after every persistSettings. */
+  private async pollDataJson(): Promise<void> {
+    const path = this.dataJsonPath();
+    if (path === null) return;
+    const stat = await this.app.vault.adapter.stat(path).catch(() => null);
     const mtime = stat?.mtime ?? null;
-    if (mtime === this.lastSharedMtime) return;
-    this.lastSharedMtime = mtime;
+    if (mtime === this.lastDataMtime) return;
+    this.lastDataMtime = mtime;
+    await this.loadSettings(); // authoritative: last write (another device) wins
     await this.reloadSharedConfig();
+    this.requestRescan(); // an external change can carry parser-relevant settings
+    this.refreshViews();
   }
 
-  /** Write one color-map change to shared.json (read-modify-write per the
-   *  desktop contract) and apply it locally. Last-write-wins; the desktop picks
-   *  it up. Shared by the project- and tag-color flows. */
-  private async saveSharedColor(
-    makeNext: (text: string) => string,
-    failNotice: string,
-  ): Promise<void> {
+  /** The 30s heartbeat: ingest synced settings first (fresh mirror / queue),
+   *  then external shared.json changes, then relay any queued edits. */
+  private async pollSharedConfig(): Promise<void> {
+    await this.pollDataJson();
+    const stat = await statSharedConfig(this.app, this.manifest.dir);
+    const mtime = stat?.mtime ?? null;
+    if (mtime !== this.lastSharedMtime) {
+      this.lastSharedMtime = mtime;
+      await this.reloadSharedConfig();
+    }
+    await this.relayPendingEdits();
+  }
+
+  /** Write shared.json (read-modify-write output) at the path the read found,
+   *  keep the poll guards and the mirror in step, and adopt the new state.
+   *  Callers reach this only after readSharedTextAt succeeded — the plugin
+   *  still never CREATES the file (hardened contract). Caller persists. */
+  private async writeSharedFile(path: string, next: string): Promise<void> {
+    // Write back to whichever path the read succeeded on (primary or legacy)
+    // so we never fork the file into two locations.
+    await this.app.vault.adapter.write(path, next);
+    // Re-stat the path we just wrote (same call statSharedConfig makes) so the
+    // next 30s poll sees our own mtime and doesn't do a wasted extra read.
+    const stat = await this.app.vault.adapter.stat(path).catch(() => null);
+    this.lastSharedMtime = stat?.mtime ?? null;
+    this.settings.sharedMirror = next;
+    this.applyResolvedShared(next, 'file');
+  }
+
+  /** One color change from the UI, routed by what this device can reach:
+   *  shared.json present → write it directly (the desktop picks it up);
+   *  mirror only → apply optimistically and queue for the relay;
+   *  neither → the integration is off. */
+  private async saveColorEdit(edit: PendingColorEdit): Promise<void> {
     try {
       const found = await readSharedTextAt(this.app, this.manifest.dir);
-      if (found === null) {
-        // Hardened contract: file absent = integration off — never create it
-        // from the plugin side (the desktop deletes it when the toggle goes off).
+      if (found !== null) {
+        await this.writeSharedFile(found.path, applyPendingEdits(found.text, [edit]));
+        await this.persistSettings(); // the mirror changed along with the file
+      } else if (this.settings.sharedMirror !== null) {
+        this.settings.sharedMirror = applyPendingEdits(this.settings.sharedMirror, [edit]);
+        this.settings.pendingColorEdits.push(edit);
+        await this.persistSettings();
+        this.applyResolvedShared(this.settings.sharedMirror, 'mirror');
+      } else {
+        // Hardened contract: no file and no mirror = integration off — never
+        // create the file from the plugin side (the desktop deletes it when
+        // the toggle goes off).
         new Notice('Color sync is off — enable the vault toggle in the desktop app.');
-        return;
       }
-      const next = makeNext(found.text);
-      // Write back to whichever path the read succeeded on (primary or legacy)
-      // so we never fork the file into two locations.
-      await this.app.vault.adapter.write(found.path, next);
-      this.lastSharedText = next; // our own write: don't re-apply it via the poll
-      // Re-stat the path we just wrote (same call statSharedConfig makes) so the
-      // next 30s poll sees our own mtime and doesn't do a wasted extra read.
-      const stat = await this.app.vault.adapter.stat(found.path).catch(() => null);
-      this.lastSharedMtime = stat?.mtime ?? null;
-      this.shared = parseSharedConfig(next);
-      this.applySharedState();
-      this.refreshViews();
     } catch {
-      new Notice(failNotice);
+      new Notice(`Could not save the ${edit.kind} color.`);
     }
   }
 
   async saveProjectColor(name: string, color: string | null): Promise<void> {
-    await this.saveSharedColor(
-      (text) => withProjectColor(text, name, color),
-      'Could not save the project color.',
-    );
+    await this.saveColorEdit({ kind: 'project', name, color });
   }
 
   async saveTagColor(name: string, color: string | null): Promise<void> {
-    await this.saveSharedColor(
-      (text) => withTagColor(text, name, color),
-      'Could not save the tag color.',
-    );
+    await this.saveColorEdit({ kind: 'tag', name, color });
+  }
+
+  /** File-device half of the relay: apply edits queued on mirror devices
+   *  (delivered via data.json sync) to shared.json, then clear the queue.
+   *  Write first, clear after — a failed write must keep the queue so the
+   *  next poll retries. */
+  private async relayPendingEdits(): Promise<void> {
+    if (this.settings.pendingColorEdits.length === 0) return;
+    try {
+      const found = await readSharedTextAt(this.app, this.manifest.dir);
+      if (found === null) return; // mirror device: keep the queue for the relay
+      const next = applyPendingEdits(found.text, this.settings.pendingColorEdits);
+      if (next !== found.text) await this.writeSharedFile(found.path, next);
+      this.settings.pendingColorEdits = [];
+      await this.persistSettings(); // clears the queue even when apply was a no-op
+    } catch {
+      // Keep the queue; retried on the next poll.
+    }
   }
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    await this.trackDataMtime(); // baseline for external data.json detection
     await this.reloadSharedConfig(); // shared state ready before the first scan
+    await this.relayPendingEdits(); // edits that synced in while Obsidian was closed
     this.applySharedState(); // unconditional: overrides reflect `shared` even when reload short-circuits
     this.index = new TaskIndex(this.app, () => this.effectiveSettings);
     this.index.onChange(() => this.refreshViews());
@@ -234,13 +320,32 @@ export default class AnnadoPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) ?? {}) };
+    this.settings = mergeSettings(await this.loadData());
+  }
+
+  private dataJsonPath(): string | null {
+    return this.manifest.dir !== undefined ? `${this.manifest.dir}/data.json` : null;
+  }
+
+  /** Remember our own data.json mtime so pollDataJson only reacts to writes
+   *  made by Obsidian Sync (i.e. by other devices). */
+  private async trackDataMtime(): Promise<void> {
+    const path = this.dataJsonPath();
+    const stat = path === null ? null : await this.app.vault.adapter.stat(path).catch(() => null);
+    this.lastDataMtime = stat?.mtime ?? null;
+  }
+
+  /** Write settings without the settings-tab rescan — the sync-plumbing paths
+   *  (mirror maintenance, queue changes) don't alter what gets parsed locally. */
+  private async persistSettings(): Promise<void> {
+    await this.saveData(this.settings);
+    await this.trackDataMtime();
   }
 
   private requestRescan = debounce(() => void this.index.fullScan(), 500, true);
 
   async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+    await this.persistSettings();
     this.requestRescan(); // full scan only after the user stops typing
   }
 }

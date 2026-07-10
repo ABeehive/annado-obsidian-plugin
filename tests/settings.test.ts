@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isPathExcluded } from '../src/settings';
+import { DEFAULT_SETTINGS, isPathExcluded, mergeSettings } from '../src/settings';
 
 describe('isPathExcluded', () => {
   it('folder pattern excludes the folder contents', () => {
@@ -13,5 +13,49 @@ describe('isPathExcluded', () => {
     expect(isPathExcluded('Notes/File.md', ['Notes/File.md'])).toBe(true);
     expect(isPathExcluded('Notes/File.md', ['Notes/File'])).toBe(true);
     expect(isPathExcluded('Notes/File/sub.md', ['Notes/File'])).toBe(true);
+  });
+});
+
+describe('mergeSettings', () => {
+  it('null/undefined input yields the defaults', () => {
+    expect(mergeSettings(null)).toEqual(DEFAULT_SETTINGS);
+    expect(mergeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('a valid mirror and queue survive the round-trip intact', () => {
+    const loaded = {
+      ...DEFAULT_SETTINGS,
+      sharedMirror: '{"schemaVersion":1}',
+      pendingColorEdits: [
+        { kind: 'tag', name: 'Admin', color: '#E53935' },
+        { kind: 'project', name: 'X', color: null },
+      ],
+    };
+    expect(mergeSettings(loaded)).toEqual(loaded);
+  });
+
+  it('sanitizes garbage in the sync-plumbing fields (other devices write data.json)', () => {
+    const merged = mergeSettings({
+      sharedMirror: 42,
+      pendingColorEdits: [
+        { kind: 'tag', name: 'ok', color: null }, // valid: null color = clear
+        { kind: 'person', name: 'bad-kind', color: '#111111' },
+        { kind: 'tag', color: '#111111' }, // missing name
+        { kind: 'project', name: 'bad-color', color: 7 },
+        'not-an-object',
+      ],
+    });
+    expect(merged.sharedMirror).toBeNull();
+    expect(merged.pendingColorEdits).toEqual([{ kind: 'tag', name: 'ok', color: null }]);
+    const noArray = mergeSettings({ pendingColorEdits: 'nope' });
+    expect(noArray.pendingColorEdits).toEqual([]);
+  });
+
+  it('a legacy pre-0.3.0 data.json keeps its fields and gains the new defaults', () => {
+    const merged = mergeSettings({ projectsPattern: 'Projecten', taskMarker: '#task' });
+    expect(merged.projectsPattern).toBe('Projecten');
+    expect(merged.taskMarker).toBe('#task');
+    expect(merged.sharedMirror).toBeNull();
+    expect(merged.pendingColorEdits).toEqual([]);
   });
 });

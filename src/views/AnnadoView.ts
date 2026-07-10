@@ -502,8 +502,10 @@ export class AnnadoView extends ItemView {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.plugin.shared === null) {
-        // No shared.json = desktop integration off; the plugin never creates
-        // the file (hardened contract), so color editing is unavailable.
+        // Neither shared.json nor the data.json mirror is available = the
+        // desktop integration is off; the plugin never creates the file
+        // (hardened contract), so color editing is unavailable. On a phone
+        // the mirror stands in for the file (edits queue for the relay).
         new Notice('Color sync is off — enable the vault toggle in the desktop app.');
         return;
       }

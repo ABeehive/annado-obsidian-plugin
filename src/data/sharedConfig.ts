@@ -6,7 +6,7 @@
 // .obsidian/, so it is not a vault note and gets no vault events. Pure logic
 // here is vitest-tested; the adapter I/O stays thin.
 import { App } from 'obsidian';
-import { AnnadoSettings } from '../settings';
+import { AnnadoSettings, PendingColorEdit } from '../settings';
 import { TaskFormat } from '../parser/taskformat';
 
 export interface SharedConfig {
@@ -101,6 +101,18 @@ export function withProjectColor(text: string | null, name: string, color: strin
  *  desktop lowercases on write too, so a color applies to every casing). */
 export function withTagColor(text: string | null, name: string, color: string | null): string {
   return withColorEntry(text, 'tagColors', name.toLowerCase(), color);
+}
+
+/** Apply a batch of queued color edits to a shared.json text, in order (a later
+ *  edit to the same key wins). Idempotent — reapplying a batch to its own
+ *  output is a no-op. Used by the mirror device's optimistic update AND the
+ *  file device's relay, so both apply edits identically. */
+export function applyPendingEdits(text: string, edits: readonly PendingColorEdit[]): string {
+  let out = text;
+  for (const e of edits) {
+    out = e.kind === 'project' ? withProjectColor(out, e.name, e.color) : withTagColor(out, e.name, e.color);
+  }
+  return out;
 }
 
 // ---- Adapter I/O (thin; verified by build + live QA, not unit tests) ----
