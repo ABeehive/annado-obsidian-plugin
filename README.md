@@ -1,4 +1,4 @@
-# Annado Mobile
+# Annado Mobile (Annado Obsidian Plugin)
 
 **Your Obsidian vault as a friendly task manager on your phone.**
 
@@ -8,7 +8,7 @@ gestures, quick capture and search. Your tasks never leave your notes: everythin
 plain text in your own files, synced however your vault syncs.
 
 It's the mobile companion to the [Annado desktop app](https://github.com/ABeehive/Annado),
-and it also works completely on its own — no desktop app required.
+and it also works completely on its own, no desktop app required. It also works on the desktop but is designed with mobile and tablet in mind. 
 
 <p align="center">
   <img src="images/today.png" width="300" alt="The Today view: tasks with dates, priorities, tags and deadline flags, grouped by project">
