@@ -58,8 +58,8 @@ Anytime, Someday and Logbook live behind the **⋯ More** button:
 
 | More views | Quick Find |
 |:--:|:--:|
-| <img src="images/more-views.png" width="240" alt="The More menu with Anytime, Someday and Logbook"> | <img src="images/quick-find.png" width="240" alt="Quick Find searching tasks, projects, people and tags"> |
-| One tap away. | Search tasks, projects, people and tags from anywhere. |
+| <img src="images/more-views.png" width="240" alt="The More menu with Anytime, Someday and Logbook"> | <img src="images/quick-find.png" width="240" alt="Quick Find: typing 'alice' surfaces the person Alice Chen plus every matching task"> |
+| One tap away. | Type a few letters and jump to a task — or straight to a person, project or tag. |
 
 ## Adding and editing
 
