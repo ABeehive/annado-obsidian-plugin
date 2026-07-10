@@ -122,6 +122,12 @@ and the task format, the import marker and excluded paths follow the desktop (th
 as locked in the plugin's settings). Without the desktop app the plugin simply uses its
 own settings and picks stable colors per name — nothing breaks.
 
+On a **phone**, sync services don't carry `shared.json` itself (Obsidian Sync only syncs
+a plugin's code and settings files), so the plugin tucks a mirror of it into its own
+settings — which do sync. Colors and parser settings just work on mobile, and a color
+you pick on your phone travels back by way of the desktop: it's applied the next time
+Obsidian is open on the machine that runs the Annado app.
+
 Curious exactly what the desktop app adds? There's a
 [full comparison](#compared-to-the-annado-desktop-app) at the bottom of this page.
 
