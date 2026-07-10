@@ -1,7 +1,7 @@
 {
 	"id": "annado-mobile",
 	"name": "Annado Mobile",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"minAppVersion": "1.7.2",
 	"description": "Lightweight mobile companion to Annado — Inbox, Today, Projects and People views over your markdown tasks.",
 	"author": "Anna",

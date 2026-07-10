@@ -1,6 +1,6 @@
 {
   "name": "annado-mobile",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Mobile companion plugin for Annado — task views on your Obsidian vault",
   "private": true,
   "license": "MIT",
