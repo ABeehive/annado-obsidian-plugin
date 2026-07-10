@@ -40,14 +40,14 @@ and it also works completely on its own, no desktop app required. It also works 
 | Projects | People | Tags |
 |:--:|:--:|:--:|
 | <img src="images/projects.png" width="240" alt="Projects view with color dots and task counts"> | <img src="images/people.png" width="240" alt="People view"> | <img src="images/tags.png" width="240" alt="Tags view with task counts"> |
-| Your project notes, with their own colors. | Tasks per `[[Person]]` you mention. | Every `#tag`, nested tags included. |
+| Your project notes, with their own colors. | Tasks per `[[Person]]` you mention. | Every `#tag`, nested tags included — each in its own color. |
 
 Tap any of them to drill in:
 
 | Inside a project | Inside a person | Inside a tag |
 |:--:|:--:|:--:|
 | <img src="images/project-detail.png" width="240" alt="A project's detail view with description, due date, milestones and its tasks"> | <img src="images/person-detail.png" width="240" alt="A person's detail view with organisation, role, languages and their tasks"> | <img src="images/tag-detail.png" width="240" alt="A tag's detail view listing every task carrying it"> |
-| Description, dates and milestones from the project note, above its tasks. | Organisation, role and languages from the person note. | Everything carrying the tag, in one list. |
+| Description, dates and milestones from the project note, above its tasks. | Organisation, role and languages from the person note. | Everything carrying the tag, in one list — tap the tag icon to change its color. |
 
 | Anytime | Someday | Logbook |
 |:--:|:--:|:--:|
@@ -117,10 +117,10 @@ same idea — your Obsidian / Markdown files are the database. Run both and your
 Mac stay in sync through the vault itself: same files, same format, no extra service.
 
 When the desktop app's *"This vault is used with the Obsidian plugin"* toggle is on, it
-shares a small `shared.json` with the plugin: project colors sync both ways, and tag
-colors, the task format, the import marker and excluded paths follow the desktop
-(they show as locked in the plugin's settings). Without the desktop app the plugin
-simply uses its own settings and picks stable colors per name — nothing breaks.
+shares a small `shared.json` with the plugin: project **and tag** colors sync both ways,
+and the task format, the import marker and excluded paths follow the desktop (they show
+as locked in the plugin's settings). Without the desktop app the plugin simply uses its
+own settings and picks stable colors per name — nothing breaks.
 
 Curious exactly what the desktop app adds? There's a
 [full comparison](#compared-to-the-annado-desktop-app) at the bottom of this page.
@@ -155,8 +155,6 @@ enable **Annado Mobile** under Settings → Community plugins.
   different folders are treated as one.
 - **No native date picker on mobile** — Obsidian's mobile webview can't open one, so
   dates are picked on the built-in tap calendar instead.
-- **Tag colors are sync-only** — they follow the desktop app via `shared.json` and
-  aren't editable in the plugin (project colors are).
 - **`inheritFrontmatterTags` isn't applied yet** — the setting syncs and is preserved,
   but a note's frontmatter tags aren't inherited onto its tasks yet.
 
@@ -184,12 +182,13 @@ rules.
   priority, people and milestones; a person's view shows organisation, relationship,
   languages and projects (read-only on mobile — edit on desktop or in the note).
 - **Desktop sync (`shared.json`)** — when the desktop app's "This vault is used with the
-  Obsidian plugin" toggle is on, project colors sync two-way (editable from a project's
-  view by tapping the color dot); tag colors and the parser settings (task format, import
-  marker, excluded paths) sync one-way from the desktop and show as locked in the
-  plugin's settings tab. Without the file, the plugin falls back to local settings and
-  stable per-name colors, and color editing is disabled — the plugin never creates the
-  file (an absent file means the integration is off).
+  Obsidian plugin" toggle is on, project and tag colors sync two-way (editable from a
+  project's or tag's view by tapping the color dot / tag icon, with the same 20-color
+  palette as the desktop); the parser settings (task format, import marker, excluded
+  paths) sync one-way from the desktop and show as locked in the plugin's settings tab.
+  Without the file, the plugin falls back to local settings and stable per-name colors,
+  and color editing is disabled — the plugin never creates the file (an absent file
+  means the integration is off).
 
 ### Only on desktop (not in the plugin)
 
