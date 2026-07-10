@@ -67,6 +67,12 @@ Anytime, Someday and Logbook live behind the **⋯ More** button:
 |:--:|:--:|:--:|
 | <img src="images/new-task.png" width="240" alt="The New task sheet"> | <img src="images/edit-task.png" width="240" alt="The Edit task sheet"> | <img src="images/delete-task.png" width="240" alt="Delete confirmation dialog"> |
 
+And the two swipes you'll use all day:
+
+| Swipe right to complete | Swipe left to reschedule or delete |
+|:--:|:--:|
+| <img src="images/swipe-complete.png" width="280" alt="Swiping a task right reveals the green complete action"> | <img src="images/swipe-actions.png" width="280" alt="Swiping a task left reveals Reschedule and Delete buttons"> |
+
 - **Add** — tap `+`. Set a date, deadline, project, priority, duration and tags from the
   icon row; tags autocomplete. The sheet is context-aware: add from a project, person or
   tag view and it's pre-filled. New tasks land in today's daily note.
