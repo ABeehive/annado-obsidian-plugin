@@ -529,6 +529,12 @@
   flex-shrink: 0;
 }
 
+/* Inherited tags (from the note's frontmatter): dashed border says "inherited",
+ * same tint as own tags otherwise. */
+.annado-tag-pill.is-inherited {
+  border-style: dashed;
+}
+
 /* Checklist count */
 .annado-checklist-count {
   display: flex;
@@ -1242,6 +1248,13 @@
   font-size: 12px;
   background: color-mix(in srgb, var(--annado-primary, #5c6bc0) 14%, var(--background-primary));
   color: var(--annado-primary, #5c6bc0);
+}
+
+/* Inherited tags (from the note's frontmatter): read-only, so no remove button;
+ * dashed border in the chip's own (tinted) color says "inherited". */
+.annado-tag-selected.is-inherited {
+  border: 1px dashed currentColor;
+  padding: 1px 8px; /* keep the same overall height as the 2px-padded, borderless own chips */
 }
 
 .annado-tag-remove {

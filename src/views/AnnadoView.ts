@@ -5,6 +5,7 @@
 import { ItemView, WorkspaceLeaf, Notice, TFile, setIcon, Menu, Platform } from 'obsidian';
 import { Task, WhenValue } from '../parser/types';
 import { todayISO, addDaysISO } from '../parser/dates';
+import { allTaskTags } from '../parser/tags';
 import type AnnadoPlugin from '../main';
 import { AddTaskModal } from './AddTaskModal';
 import { ColorPickerModal } from './ColorPickerModal';
@@ -866,19 +867,19 @@ export class AnnadoView extends ItemView {
   private renderTagsTab(body: HTMLElement): void {
     if (this.selected !== null) {
       const name = this.selected;
-      const tasks = this.openTasks().filter((t) => tagsMatchFilter(t.tags, name));
+      const tasks = this.openTasks().filter((t) => tagsMatchFilter(allTaskTags(t), name));
       this.renderDetail(body, 'tags', name, tasks);
       return;
     }
     this.renderHeader(body, 'tags', 0);
 
     const open = this.openTasks();
-    const names = [...new Set(open.flatMap((t) => t.tags))];
+    const names = [...new Set(open.flatMap((t) => allTaskTags(t)))];
     if (names.length === 0) {
       this.renderEmpty(body, { title: 'No tags yet.' });
       return;
     }
-    const tree = buildTagTree(names, open.map((t) => t.tags)) as TagNode[];
+    const tree = buildTagTree(names, open.map((t) => allTaskTags(t))) as TagNode[];
     const list = body.createDiv({ cls: 'annado-group-list' });
     this.renderTree(list, tree, 0, 'tags');
   }
@@ -941,7 +942,7 @@ export class AnnadoView extends ItemView {
   /** The vault's tags, de-duplicated and sorted — shared by add + Quick Find.
    *  Accepts a precomputed task list to avoid a redundant allTasks() call. */
   private allTagsSorted(tasks: Task[] = this.plugin.index.allTasks()): string[] {
-    return [...new Set(tasks.flatMap((t) => t.tags))].sort((a, b) => a.localeCompare(b));
+    return [...new Set(tasks.flatMap((t) => allTaskTags(t)))].sort((a, b) => a.localeCompare(b));
   }
 
   private openAddTask(ctx: {
@@ -1102,14 +1103,8 @@ export class AnnadoView extends ItemView {
       });
     }
     if (task.notes !== '') setIcon(titleLine.createSpan({ cls: 'annado-notes-icon' }), 'file-text');
-    for (const tag of task.tags) {
-      const pill = titleLine.createSpan({ cls: 'annado-tag-pill', text: tag });
-      tintTag(pill, tag);
-      pill.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.openTag(tag);
-      });
-    }
+    for (const tag of task.tags) this.renderTagPill(titleLine, tag, false);
+    for (const tag of task.inheritedTags) this.renderTagPill(titleLine, tag, true);
 
     if (isExpanded) {
       this.renderExpanded(main, task);
@@ -1209,6 +1204,23 @@ export class AnnadoView extends ItemView {
   private async completeViaSwipe(row: HTMLElement, task: Task): Promise<void> {
     row.addClass('is-completing');
     await this.write(this.plugin.toggleTask(task, true));
+  }
+
+  /** One tag pill on a task row: tinted per the resolved tag color, tapping opens
+   *  the tag view. Inherited tags (from the note's frontmatter) get a dashed
+   *  `is-inherited` treatment and a tooltip explaining why they're there — same
+   *  click behavior as own tags, shown on completed rows too (own pills already are). */
+  private renderTagPill(parent: HTMLElement, tag: string, inherited: boolean): void {
+    const pill = parent.createSpan({
+      cls: `annado-tag-pill${inherited ? ' is-inherited' : ''}`,
+      text: tag,
+      ...(inherited ? { attr: { title: "Inherited from the note's frontmatter" } } : {}),
+    });
+    tintTag(pill, tag);
+    pill.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openTag(tag);
+    });
   }
 
   private wireReschedule(pill: HTMLElement, task: Task): void {

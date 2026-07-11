@@ -68,6 +68,9 @@ export class AddTaskModal extends Modal {
   private priority: number | null = null;
   private duration: number | null = null;
   private selectedTags: string[] = [];
+  // Read-only in this modal: never added to selectedTags, so they can never be
+  // serialized into the line (edits re-serialize from selectedTags only).
+  private inheritedTags: string[] = [];
   private originalProjects: string[] = [];
 
   private saveBtn!: HTMLButtonElement;
@@ -91,6 +94,7 @@ export class AddTaskModal extends Modal {
       this.priority = t.priority;
       this.duration = t.durationMinutes;
       this.selectedTags = [...t.tags];
+      this.inheritedTags = [...t.inheritedTags];
     } else {
       this.when = opts.defaultWhen;
       this.project = opts.defaultProject ?? '';
@@ -352,6 +356,17 @@ export class AddTaskModal extends Modal {
 
   private renderTagChips(): void {
     this.tagChipsEl.empty();
+    // Inherited (from the note's frontmatter) render first, read-only: no remove
+    // button, and they never enter selectedTags — so they can never be
+    // serialized into the line on save.
+    for (const tag of this.inheritedTags) {
+      const chip = this.tagChipsEl.createSpan({
+        cls: 'annado-tag-selected is-inherited',
+        attr: { title: "Inherited from the note's frontmatter" },
+      });
+      tintTag(chip, tag);
+      chip.createSpan({ text: `#${tag}` });
+    }
     for (const tag of this.selectedTags) {
       const chip = this.tagChipsEl.createSpan({ cls: 'annado-tag-selected' });
       tintTag(chip, tag);
