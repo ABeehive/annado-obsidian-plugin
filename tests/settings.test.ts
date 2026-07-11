@@ -22,6 +22,35 @@ describe('mergeSettings', () => {
     expect(mergeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
   });
 
+  it('defaults: inheritFrontmatterTags is off, excludedTags is empty', () => {
+    expect(DEFAULT_SETTINGS.inheritFrontmatterTags).toBe(false);
+    expect(DEFAULT_SETTINGS.excludedTags).toEqual([]);
+  });
+
+  it('a valid inheritFrontmatterTags/excludedTags round-trip intact', () => {
+    const loaded = {
+      ...DEFAULT_SETTINGS,
+      inheritFrontmatterTags: true,
+      excludedTags: ['werk', 'Privé'],
+    };
+    expect(mergeSettings(loaded)).toEqual(loaded);
+  });
+
+  it('sanitizes a non-boolean inheritFrontmatterTags back to the default', () => {
+    const merged = mergeSettings({ inheritFrontmatterTags: 'yes' });
+    expect(merged.inheritFrontmatterTags).toBe(false);
+  });
+
+  it('sanitizes a non-array excludedTags to []', () => {
+    const merged = mergeSettings({ excludedTags: 'werk' });
+    expect(merged.excludedTags).toEqual([]);
+  });
+
+  it('drops non-string entries from excludedTags, keeping the rest in order', () => {
+    const merged = mergeSettings({ excludedTags: ['a', 3, null, 'b'] });
+    expect(merged.excludedTags).toEqual(['a', 'b']);
+  });
+
   it('a valid mirror and queue survive the round-trip intact', () => {
     const loaded = {
       ...DEFAULT_SETTINGS,

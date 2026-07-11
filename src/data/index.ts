@@ -7,6 +7,7 @@ import { parseFile, resolveWikilinks, normalizeMarker } from '../parser/parser';
 import { todayISO } from '../parser/dates';
 import { AnnadoSettings, isPathExcluded } from '../settings';
 import { getProjects, getPersons, FolderItem } from './folders';
+import { applyInheritedTags, removeExcludedTagTasks } from '../parser/tags';
 
 export class TaskIndex {
   private tasksByFile = new Map<string, Task[]>();
@@ -104,7 +105,10 @@ export class TaskIndex {
     const marker = normalizeMarker(settings.taskMarker);
     const tasks = parseFile(content, file.path, todayISO(), marker, settings.projectsPattern);
     resolveWikilinks(tasks, this.personNames, this.projectNames);
-    if (tasks.length > 0) this.tasksByFile.set(file.path, tasks);
+    const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+    applyInheritedTags(tasks, fm, settings.inheritFrontmatterTags);
+    const kept = removeExcludedTagTasks(tasks, settings.excludedTags);
+    if (kept.length > 0) this.tasksByFile.set(file.path, kept);
   }
 
   private isExcludedByFrontmatter(file: TFile): boolean {

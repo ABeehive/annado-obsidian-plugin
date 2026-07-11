@@ -258,6 +258,15 @@ export default class AnnadoPlugin extends Plugin {
           }),
         );
         this.registerEvent(
+          // getFileCache can lag a rapid edit; 'changed' fires once Obsidian's
+          // cache is updated, so a frontmatter-only edit reliably rescans with
+          // fresh frontmatter. Same rescan the 'modify' handler above uses —
+          // the resulting double rescan per edit is cheap and idempotent.
+          this.app.metadataCache.on('changed', (f) => {
+            if (f.extension === 'md') void this.index.rescanFile(f.path);
+          }),
+        );
+        this.registerEvent(
           this.app.vault.on('create', (f) => {
             if (f instanceof TFile && f.extension === 'md') void this.index.rescanFile(f.path);
           }),
