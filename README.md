@@ -109,6 +109,11 @@ A task is one checkbox line in any note, with optional details inline:
   or reference it with a `[[wikilink]]` from anywhere.
 - Prefer the [Obsidian Tasks](https://publish.obsidian.md/tasks/) emoji style or
   Dataview fields? The plugin reads all three styles and writes the one you pick.
+- A note's frontmatter `tags` can flow down onto its tasks too — turn on **Show
+  frontmatter tags on tasks** in Settings (a single note can override with
+  `annado_inherit_tags: true` or `false` in its own frontmatter). Inherited tags show as
+  dashed chips on the task, so you can tell them apart from tags written on the line
+  itself.
 
 ## Using it with the Annado desktop app
 
@@ -117,10 +122,11 @@ same idea — your Obsidian / Markdown files are the database. Run both and your
 Mac stay in sync through the vault itself: same files, same format, no extra service.
 
 When the desktop app's *"This vault is used with the Obsidian plugin"* toggle is on, it
-shares a small `shared.json` with the plugin: project **and tag** colors sync both ways,
-and the task format, the import marker and excluded paths follow the desktop (they show
-as locked in the plugin's settings). Without the desktop app the plugin simply uses its
-own settings and picks stable colors per name — nothing breaks.
+shares a small `shared.json` with the plugin: project **and tag** colors, excluded tags
+and the frontmatter-tag-inheritance toggle all sync both ways, and the task format, the
+import marker and excluded paths follow the desktop (they show as locked in the plugin's
+settings). Without the desktop app the plugin simply uses its own settings and picks
+stable colors per name — nothing breaks.
 
 On a **phone**, sync services don't carry `shared.json` itself (Obsidian Sync only syncs
 a plugin's code and settings files), so the plugin tucks a mirror of it into its own
@@ -154,6 +160,14 @@ enable **Annado Mobile** under Settings → Community plugins.
 - **Daily notes (fallback)** — only used when the Daily Notes core plugin isn't
   configured; its settings always win.
 - **Excluded paths** — folders or files the plugin should ignore (`Archive/`, …).
+- **Show frontmatter tags on tasks** — inherit a note's frontmatter tags onto its tasks
+  (off by default; a note can override with `annado_inherit_tags`).
+- **Excluded tags** — hide tasks carrying a given tag — their own or inherited —
+  everywhere in the plugin, including completed and recurring tasks. Excluding a tag
+  also excludes its nested subtree (`#work` hides `#work/urgent` too). Works standalone;
+  syncs two-way with the desktop app when connected.
+
+<!-- screenshot: settings screen showing the "Show frontmatter tags on tasks" toggle and the Excluded tags list -->
 
 ## Known limitations
 
@@ -161,8 +175,6 @@ enable **Annado Mobile** under Settings → Community plugins.
   different folders are treated as one.
 - **No native date picker on mobile** — Obsidian's mobile webview can't open one, so
   dates are picked on the built-in tap calendar instead.
-- **`inheritFrontmatterTags` isn't applied yet** — the setting syncs and is preserved,
-  but a note's frontmatter tags aren't inherited onto its tasks yet.
 
 ## Compared to the Annado desktop app
 
@@ -178,8 +190,8 @@ the desktop.
 ### Shared (both apps)
 
 Same vault & task file format (all three dialects, read-any/write-chosen, `#task` import
-marker, frontmatter-tag inheritance) · Inbox / Today / Upcoming / Anytime / Someday /
-Logbook · Projects (nested) / People / Tags (nested) · create · edit · complete ·
+marker, frontmatter-tag inheritance, excluded tags) · Inbox / Today / Upcoming / Anytime /
+Someday / Logbook · Projects (nested) / People / Tags (nested) · create · edit · complete ·
 reschedule (when) · deadlines · priority · duration · checklists · notes · delete ·
 Quick Find · open-in-editor · recurrence **advance on complete** for modeled `@repeat`
 rules.
@@ -188,13 +200,14 @@ rules.
   priority, people and milestones; a person's view shows organisation, relationship,
   languages and projects (read-only on mobile — edit on desktop or in the note).
 - **Desktop sync (`shared.json`)** — when the desktop app's "This vault is used with the
-  Obsidian plugin" toggle is on, project and tag colors sync two-way (editable from a
-  project's or tag's view by tapping the color dot / tag icon, with the same 20-color
-  palette as the desktop); the parser settings (task format, import marker, excluded
-  paths) sync one-way from the desktop and show as locked in the plugin's settings tab.
-  Without the file, the plugin falls back to local settings and stable per-name colors,
-  and color editing is disabled — the plugin never creates the file (an absent file
-  means the integration is off).
+  Obsidian plugin" toggle is on, project and tag colors, excluded tags and the
+  frontmatter-tag-inheritance toggle all sync two-way (colors editable from a project's
+  or tag's view by tapping the color dot / tag icon, with the same 20-color palette as
+  the desktop; excluded tags and inheritance from the plugin's Settings tab); the parser
+  settings (task format, import marker, excluded paths) sync one-way from the desktop
+  and show as locked in the plugin's settings tab. Without the file, the plugin falls
+  back to local settings and stable per-name colors, and color editing is disabled — the
+  plugin never creates the file (an absent file means the integration is off).
 
 ### Only on desktop (not in the plugin)
 
