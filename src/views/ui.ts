@@ -218,18 +218,10 @@ export const TITLE_LINK_RE = /\[\[([^\]]+)\]\]|\[([^\]]+)\]\(([^)]+)\)/g;
 
 // ---- Tags: nested matching + tree (port of src/utils/tags.ts + tagTree.ts) ----
 
-/** A task tag matches a (possibly parent) filter tag if it IS that tag or a nested
- *  descendant (`filter/…`). Case-insensitive. `#inbox` matches `#inbox/to-read`
- *  but not `#inboxed`. */
-export function tagMatchesFilter(taskTag: string, filterTag: string): boolean {
-  const t = taskTag.toLowerCase();
-  const f = filterTag.toLowerCase();
-  return t === f || t.startsWith(f + '/');
-}
-
-export function tagsMatchFilter(tags: string[], filterTag: string): boolean {
-  return tags.some((t) => tagMatchesFilter(t, filterTag));
-}
+// tagMatchesFilter/tagsMatchFilter moved to parser/tags.ts (pure, unit-tested,
+// shared with excluded-tags matching); re-exported here so existing view
+// call-sites and tests/ui.test.ts keep working unchanged.
+export { tagMatchesFilter, tagsMatchFilter } from '../parser/tags';
 
 export interface TagNode {
   name: string; // full path, e.g. "inbox/to-read"

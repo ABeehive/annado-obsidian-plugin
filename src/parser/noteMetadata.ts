@@ -141,7 +141,9 @@ const RELATIONSHIP_KEYS = ['relationship', 'relation', 'type'] as const;
 const LANGUAGE_KEYS = ['languages', 'language', 'lang'] as const;
 const PROJECT_KEYS = ['projects', 'project'] as const;
 
-function asRecord(frontmatter: unknown): Record<string, unknown> | null {
+/** Guard an Obsidian frontmatter value down to a plain record (null for any
+ *  other shape). Shared with tags.ts, which reads frontmatter the same way. */
+export function asRecord(frontmatter: unknown): Record<string, unknown> | null {
   return typeof frontmatter === 'object' && frontmatter !== null && !Array.isArray(frontmatter)
     ? (frontmatter as Record<string, unknown>)
     : null;

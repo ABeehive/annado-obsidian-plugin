@@ -173,6 +173,7 @@ export function parseFile(
         when,
         deadline,
         tags,
+        inheritedTags: [],
         checklist,
         completed: parsed.completed,
         completedDate,

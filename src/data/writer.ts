@@ -167,6 +167,7 @@ export async function createTask(
     when: input.when,
     deadline: input.deadline ?? null,
     tags: input.tags ?? [],
+    inheritedTags: [],
     checklist: [],
     completed: false,
     completedDate: null,

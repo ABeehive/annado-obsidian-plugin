@@ -33,6 +33,9 @@ export interface Task {
   when: WhenValue;
   deadline: string | null; // ISO date
   tags: string[];
+  /** Frontmatter tags injected at scan time (apply_inherited_tags port); NEVER
+   *  serialized into the task line. */
+  inheritedTags: string[];
   checklist: ChecklistItem[];
   completed: boolean;
   completedDate: string | null;
