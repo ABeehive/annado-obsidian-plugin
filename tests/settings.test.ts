@@ -145,5 +145,17 @@ describe('mergeSettings', () => {
     it('missing both keys yields []', () => {
       expect(mergeSettings({}).pendingSharedEdits).toEqual([]);
     });
+
+    it('drops the legacy pendingColorEdits key from the merged object (no resurrection)', () => {
+      // The general spread carries unknown keys along (deliberate forward-compat),
+      // but the migrated legacy key must NOT ride along: saveData(this.settings)
+      // would persist it back to data.json, and the next load would re-fold the
+      // already-relayed edits — resurrecting them after the queue was cleared.
+      const merged = mergeSettings({
+        pendingColorEdits: [{ kind: 'tag', name: 'Admin', color: '#E53935' }],
+      });
+      expect(merged.pendingSharedEdits).toEqual([{ kind: 'tag', name: 'Admin', color: '#E53935' }]);
+      expect(Object.prototype.hasOwnProperty.call(merged, 'pendingColorEdits')).toBe(false);
+    });
   });
 });

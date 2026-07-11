@@ -81,6 +81,12 @@ export function mergeSettings(loaded: unknown): AnnadoSettings {
   const legacyEdits = Array.isArray(raw['pendingColorEdits']) ? raw['pendingColorEdits'] : [];
   const currentEdits = Array.isArray(raw['pendingSharedEdits']) ? raw['pendingSharedEdits'] : [];
   merged.pendingSharedEdits = [...legacyEdits, ...currentEdits].filter(isValidPendingSharedEdit);
+  // Drop the migrated legacy key: the spread above carries every unknown key
+  // along (deliberate forward-compat), but this one would be persisted back by
+  // saveData(this.settings) and re-folded on the NEXT load — resurrecting
+  // edits long after the relay applied them and cleared the queue, potentially
+  // clobbering newer desktop-side values.
+  delete (merged as unknown as Record<string, unknown>)['pendingColorEdits'];
   return merged;
 }
 
