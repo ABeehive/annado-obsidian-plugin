@@ -6,7 +6,7 @@
 // .obsidian/, so it is not a vault note and gets no vault events. Pure logic
 // here is vitest-tested; the adapter I/O stays thin.
 import { App } from 'obsidian';
-import { AnnadoSettings, PendingColorEdit } from '../settings';
+import { AnnadoSettings, PendingSharedEdit } from '../settings';
 import { TaskFormat } from '../parser/taskformat';
 
 export interface SharedConfig {
@@ -20,6 +20,10 @@ export interface SharedConfig {
   taskMarkerTag: string | null;
   /** null = absent; [] is meaningful (exclude nothing). */
   excludedPaths: string[] | null;
+  /** null = absent; [] is meaningful (exclude no tags). */
+  excludedTags: string[] | null;
+  /** null = absent; false is meaningful (inheritance off). */
+  inheritFrontmatterTags: boolean | null;
 }
 
 const TASK_FORMATS: readonly string[] = ['annado', 'obsidian_tasks', 'dataview'];
@@ -46,6 +50,8 @@ export function parseSharedConfig(text: string | null): SharedConfig | null {
   const fmt = raw['taskFormat'];
   const marker = raw['taskMarkerTag'];
   const excluded = raw['excludedPaths'];
+  const excludedTags = raw['excludedTags'];
+  const inheritTags = raw['inheritFrontmatterTags'];
   return {
     raw,
     projectColors: stringRecord(raw['projectColors']),
@@ -56,6 +62,10 @@ export function parseSharedConfig(text: string | null): SharedConfig | null {
     excludedPaths: Array.isArray(excluded)
       ? excluded.filter((p): p is string => typeof p === 'string')
       : null,
+    excludedTags: Array.isArray(excludedTags)
+      ? excludedTags.filter((t): t is string => typeof t === 'string')
+      : null,
+    inheritFrontmatterTags: typeof inheritTags === 'boolean' ? inheritTags : null,
   };
 }
 
@@ -67,29 +77,42 @@ export function applySharedToSettings(local: AnnadoSettings, shared: SharedConfi
     ...(shared.taskFormat !== null ? { taskFormat: shared.taskFormat } : {}),
     ...(shared.taskMarkerTag !== null ? { taskMarker: shared.taskMarkerTag } : {}),
     ...(shared.excludedPaths !== null ? { excludedPaths: shared.excludedPaths } : {}),
+    ...(shared.excludedTags !== null ? { excludedTags: shared.excludedTags } : {}),
+    ...(shared.inheritFrontmatterTags !== null
+      ? { inheritFrontmatterTags: shared.inheritFrontmatterTags }
+      : {}),
   };
 }
 
-/** Produce the JSON text to write after setting (color) or clearing (null) one
- *  entry in a color map. Read-modify-write: preserves schemaVersion and every
- *  field we don't own (including unknown future ones — and the *other* color
- *  map); stamps generatedBy annado-mobile. A missing or malformed source
+/** Shared read-modify-write skeleton for every shared.json writer (colors,
+ *  excludedTags, inheritFrontmatterTags): parse the source (or start a fresh
+ *  minimal doc), ensure schemaVersion, let `mutate` set the one field it
+ *  owns, stamp generatedBy annado-mobile, serialize. Preserves every field we
+ *  don't own — including unknown future ones. A missing or malformed source
  *  becomes a minimal valid document. */
+function withSharedEdit(text: string | null, mutate: (base: Record<string, unknown>) => void): string {
+  const parsed = text === null ? null : parseSharedConfig(text);
+  const base: Record<string, unknown> = parsed ? { ...parsed.raw } : { schemaVersion: 1 };
+  if (base['schemaVersion'] === undefined) base['schemaVersion'] = 1;
+  mutate(base);
+  base['generatedBy'] = 'annado-mobile';
+  return JSON.stringify(base, null, 2);
+}
+
+/** Produce the JSON text to write after setting (color) or clearing (null) one
+ *  entry in a color map. */
 function withColorEntry(
   text: string | null,
   mapField: 'projectColors' | 'tagColors',
   key: string,
   color: string | null,
 ): string {
-  const parsed = text === null ? null : parseSharedConfig(text);
-  const base: Record<string, unknown> = parsed ? { ...parsed.raw } : { schemaVersion: 1 };
-  if (base['schemaVersion'] === undefined) base['schemaVersion'] = 1;
-  const colors = stringRecord(base[mapField]);
-  if (color === null) delete colors[key];
-  else colors[key] = color;
-  base[mapField] = colors;
-  base['generatedBy'] = 'annado-mobile';
-  return JSON.stringify(base, null, 2);
+  return withSharedEdit(text, (base) => {
+    const colors = stringRecord(base[mapField]);
+    if (color === null) delete colors[key];
+    else colors[key] = color;
+    base[mapField] = colors;
+  });
 }
 
 /** Set/clear one project's color. Project keys are exact-case basenames. */
@@ -103,16 +126,45 @@ export function withTagColor(text: string | null, name: string, color: string | 
   return withColorEntry(text, 'tagColors', name.toLowerCase(), color);
 }
 
-/** Apply a batch of queued color edits to a shared.json text, in order (a later
- *  edit to the same key wins). Idempotent — reapplying a batch to its own
- *  output is a no-op. Used by the mirror device's optimistic update AND the
- *  file device's relay, so both apply edits identically. */
-export function applyPendingEdits(text: string, edits: readonly PendingColorEdit[]): string {
-  let out = text;
-  for (const e of edits) {
-    out = e.kind === 'project' ? withProjectColor(out, e.name, e.color) : withTagColor(out, e.name, e.color);
+/** Replace the whole excludedTags list. */
+export function withExcludedTags(text: string | null, tags: string[]): string {
+  return withSharedEdit(text, (base) => {
+    base['excludedTags'] = tags;
+  });
+}
+
+/** Set the inheritFrontmatterTags flag. */
+export function withInheritFrontmatterTags(text: string | null, enabled: boolean): string {
+  return withSharedEdit(text, (base) => {
+    base['inheritFrontmatterTags'] = enabled;
+  });
+}
+
+function applyOneSharedEdit(text: string | null, edit: PendingSharedEdit): string {
+  switch (edit.kind) {
+    case 'project':
+      return withProjectColor(text, edit.name, edit.color);
+    case 'tag':
+      return withTagColor(text, edit.name, edit.color);
+    case 'excludedTags':
+      return withExcludedTags(text, edit.value);
+    case 'inheritTags':
+      return withInheritFrontmatterTags(text, edit.value);
   }
-  return out;
+}
+
+/** Apply a batch of queued edits to a shared.json text, in order (a later edit
+ *  to the same key/field wins). Idempotent — reapplying a batch to its own
+ *  output is a no-op. Used by the mirror device's optimistic update AND the
+ *  file device's relay, so both apply edits identically. An empty batch
+ *  returns `text` verbatim when given one; a null source with no edits still
+ *  produces a minimal valid document (mirrors the single-writer contract). */
+export function applyPendingEdits(text: string | null, edits: readonly PendingSharedEdit[]): string {
+  let out: string | null = text;
+  for (const edit of edits) {
+    out = applyOneSharedEdit(out, edit);
+  }
+  return out ?? withSharedEdit(null, () => {});
 }
 
 // ---- Adapter I/O (thin; verified by build + live QA, not unit tests) ----

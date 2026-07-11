@@ -3,10 +3,12 @@ import {
   applyPendingEdits,
   applySharedToSettings,
   parseSharedConfig,
+  withExcludedTags,
+  withInheritFrontmatterTags,
   withProjectColor,
   withTagColor,
 } from '../src/data/sharedConfig';
-import { DEFAULT_SETTINGS, PendingColorEdit } from '../src/settings';
+import { DEFAULT_SETTINGS, PendingSharedEdit } from '../src/settings';
 
 const FULL = JSON.stringify({
   schemaVersion: 1,
@@ -17,6 +19,7 @@ const FULL = JSON.stringify({
   taskFormat: 'obsidian_tasks',
   taskMarkerTag: '#task',
   inheritFrontmatterTags: false,
+  excludedTags: ['work', 'Family'],
 });
 
 describe('parseSharedConfig', () => {
@@ -27,6 +30,8 @@ describe('parseSharedConfig', () => {
     expect(c.taskFormat).toBe('obsidian_tasks');
     expect(c.taskMarkerTag).toBe('#task');
     expect(c.excludedPaths).toEqual(['Archive/', 'Templates/Meeting.md']);
+    expect(c.excludedTags).toEqual(['work', 'Family']);
+    expect(c.inheritFrontmatterTags).toBe(false);
   });
 
   it('returns null for missing or malformed input', () => {
@@ -43,6 +48,25 @@ describe('parseSharedConfig', () => {
     expect(c.taskFormat).toBeNull();
     expect(c.taskMarkerTag).toBeNull();
     expect(c.excludedPaths).toBeNull();
+    expect(c.excludedTags).toBeNull();
+    expect(c.inheritFrontmatterTags).toBeNull();
+  });
+
+  it('excludedTags: [] parses as [] (not null); inheritFrontmatterTags: false parses as false (not null)', () => {
+    const c = parseSharedConfig('{"excludedTags":[],"inheritFrontmatterTags":false}')!;
+    expect(c.excludedTags).toEqual([]);
+    expect(c.inheritFrontmatterTags).toBe(false);
+  });
+
+  it('wrong-typed tag fields degrade to null', () => {
+    const c = parseSharedConfig('{"excludedTags":"oops","inheritFrontmatterTags":"yes"}')!;
+    expect(c.excludedTags).toBeNull();
+    expect(c.inheritFrontmatterTags).toBeNull();
+  });
+
+  it('filters junk entries out of excludedTags but keeps the valid ones (mirrors stringRecord lenience)', () => {
+    const c = parseSharedConfig('{"excludedTags":["work", 7, null, "family"]}')!;
+    expect(c.excludedTags).toEqual(['work', 'family']);
   });
 
   it('drops non-string values inside color maps but keeps the rest', () => {
@@ -96,6 +120,43 @@ describe('applySharedToSettings', () => {
     const local = { ...DEFAULT_SETTINGS, excludedPaths: ['Archive/'] };
     const merged = applySharedToSettings(local, parseSharedConfig('{"excludedPaths":[]}')!);
     expect(merged.excludedPaths).toEqual([]);
+  });
+
+  it('shared excludedTags/inheritFrontmatterTags win over local when present', () => {
+    const local = { ...DEFAULT_SETTINGS, excludedTags: ['local'], inheritFrontmatterTags: true };
+    const merged = applySharedToSettings(
+      local,
+      parseSharedConfig('{"excludedTags":["work"],"inheritFrontmatterTags":false}')!,
+    );
+    expect(merged.excludedTags).toEqual(['work']);
+    expect(merged.inheritFrontmatterTags).toBe(false);
+  });
+
+  it('shared [] overrides local non-empty excludedTags with [] (exclude nothing)', () => {
+    const local = { ...DEFAULT_SETTINGS, excludedTags: ['local'] };
+    const merged = applySharedToSettings(local, parseSharedConfig('{"excludedTags":[]}')!);
+    expect(merged.excludedTags).toEqual([]);
+  });
+
+  it('shared true/false override local inheritFrontmatterTags in either direction', () => {
+    const toFalse = applySharedToSettings(
+      { ...DEFAULT_SETTINGS, inheritFrontmatterTags: true },
+      parseSharedConfig('{"inheritFrontmatterTags":false}')!,
+    );
+    expect(toFalse.inheritFrontmatterTags).toBe(false);
+
+    const toTrue = applySharedToSettings(
+      { ...DEFAULT_SETTINGS, inheritFrontmatterTags: false },
+      parseSharedConfig('{"inheritFrontmatterTags":true}')!,
+    );
+    expect(toTrue.inheritFrontmatterTags).toBe(true);
+  });
+
+  it('absent (null) tag fields leave local values untouched', () => {
+    const local = { ...DEFAULT_SETTINGS, excludedTags: ['local'], inheritFrontmatterTags: true };
+    const merged = applySharedToSettings(local, parseSharedConfig('{"schemaVersion":1}')!);
+    expect(merged.excludedTags).toEqual(['local']);
+    expect(merged.inheritFrontmatterTags).toBe(true);
   });
 });
 
@@ -177,8 +238,80 @@ describe('withTagColor', () => {
   });
 });
 
+describe('withExcludedTags', () => {
+  it('sets excludedTags and stamps generatedBy, preserving everything else', () => {
+    const out = JSON.parse(withExcludedTags(FULL, ['work', 'family']));
+    expect(out.excludedTags).toEqual(['work', 'family']);
+    expect(out.generatedBy).toBe('annado-mobile');
+    expect(out.schemaVersion).toBe(1);
+    expect(out.projectColors).toEqual({ 'Website Redesign': '#e84545' });
+    expect(out.tagColors).toEqual({ design: '#5aa9e6' });
+    expect(out.taskFormat).toBe('obsidian_tasks');
+    expect(out.inheritFrontmatterTags).toBe(false);
+  });
+
+  it('replaces the whole list, not a merge', () => {
+    const out = JSON.parse(withExcludedTags(FULL, ['only-this']));
+    expect(out.excludedTags).toEqual(['only-this']);
+  });
+
+  it('[] clears the list', () => {
+    const out = JSON.parse(withExcludedTags(FULL, []));
+    expect(out.excludedTags).toEqual([]);
+  });
+
+  it('builds a minimal valid document from a missing file', () => {
+    const out = JSON.parse(withExcludedTags(null, ['a']));
+    expect(out).toEqual({ schemaVersion: 1, generatedBy: 'annado-mobile', excludedTags: ['a'] });
+  });
+
+  it('builds a minimal valid document from a malformed file (never propagates garbage)', () => {
+    const out = JSON.parse(withExcludedTags('not json {', ['a']));
+    expect(out).toEqual({ schemaVersion: 1, generatedBy: 'annado-mobile', excludedTags: ['a'] });
+  });
+
+  it('preserves unknown future fields verbatim', () => {
+    const out = JSON.parse(withExcludedTags('{"schemaVersion":3,"futureField":[1,2]}', ['a']));
+    expect(out.schemaVersion).toBe(3);
+    expect(out.futureField).toEqual([1, 2]);
+  });
+});
+
+describe('withInheritFrontmatterTags', () => {
+  it('sets inheritFrontmatterTags and stamps generatedBy, preserving everything else', () => {
+    const out = JSON.parse(withInheritFrontmatterTags(FULL, true));
+    expect(out.inheritFrontmatterTags).toBe(true);
+    expect(out.generatedBy).toBe('annado-mobile');
+    expect(out.schemaVersion).toBe(1);
+    expect(out.excludedTags).toEqual(['work', 'Family']);
+    expect(out.projectColors).toEqual({ 'Website Redesign': '#e84545' });
+    expect(out.tagColors).toEqual({ design: '#5aa9e6' });
+  });
+
+  it('false is a meaningful, distinct value from absent', () => {
+    const out = JSON.parse(withInheritFrontmatterTags(FULL, false));
+    expect(out.inheritFrontmatterTags).toBe(false);
+  });
+
+  it('builds a minimal valid document from a missing file', () => {
+    const out = JSON.parse(withInheritFrontmatterTags(null, true));
+    expect(out).toEqual({ schemaVersion: 1, generatedBy: 'annado-mobile', inheritFrontmatterTags: true });
+  });
+
+  it('builds a minimal valid document from a malformed file (never propagates garbage)', () => {
+    const out = JSON.parse(withInheritFrontmatterTags('not json {', false));
+    expect(out).toEqual({ schemaVersion: 1, generatedBy: 'annado-mobile', inheritFrontmatterTags: false });
+  });
+
+  it('preserves unknown future fields verbatim', () => {
+    const out = JSON.parse(withInheritFrontmatterTags('{"schemaVersion":3,"futureField":[1,2]}', true));
+    expect(out.schemaVersion).toBe(3);
+    expect(out.futureField).toEqual([1, 2]);
+  });
+});
+
 describe('applyPendingEdits', () => {
-  const BATCH: PendingColorEdit[] = [
+  const BATCH: PendingSharedEdit[] = [
     { kind: 'project', name: 'New Project', color: '#43A047' },
     { kind: 'tag', name: 'Admin', color: '#E53935' },
     { kind: 'project', name: 'Website Redesign', color: null },
@@ -227,5 +360,52 @@ describe('applyPendingEdits', () => {
     expect(out.generatedBy).toBe('annado-mobile');
     expect(out.projectColors).toEqual({ 'New Project': '#43A047' });
     expect(out.tagColors).toEqual({ admin: '#E53935' });
+  });
+
+  it('accepts null base text, producing a minimal doc from an empty batch', () => {
+    expect(applyPendingEdits(null, [])).toBe(
+      JSON.stringify({ schemaVersion: 1, generatedBy: 'annado-mobile' }, null, 2),
+    );
+  });
+
+  describe('mixed kinds (color + excludedTags + inheritTags)', () => {
+    const MIXED: PendingSharedEdit[] = [
+      { kind: 'tag', name: 'Admin', color: '#E53935' },
+      { kind: 'excludedTags', value: ['work', 'family'] },
+      { kind: 'inheritTags', value: true },
+    ];
+
+    it('applies every kind in order', () => {
+      const out = JSON.parse(applyPendingEdits(FULL, MIXED));
+      expect(out.tagColors).toEqual({ design: '#5aa9e6', admin: '#E53935' });
+      expect(out.excludedTags).toEqual(['work', 'family']);
+      expect(out.inheritFrontmatterTags).toBe(true);
+      expect(out.generatedBy).toBe('annado-mobile');
+    });
+
+    it('two excludedTags edits: later wins', () => {
+      const out = JSON.parse(
+        applyPendingEdits(FULL, [
+          { kind: 'excludedTags', value: ['a'] },
+          { kind: 'excludedTags', value: ['b', 'c'] },
+        ]),
+      );
+      expect(out.excludedTags).toEqual(['b', 'c']);
+    });
+
+    it('two inheritTags edits: later wins', () => {
+      const out = JSON.parse(
+        applyPendingEdits(FULL, [
+          { kind: 'inheritTags', value: true },
+          { kind: 'inheritTags', value: false },
+        ]),
+      );
+      expect(out.inheritFrontmatterTags).toBe(false);
+    });
+
+    it('is idempotent: reapplying the mixed batch is a fixpoint', () => {
+      const once = applyPendingEdits(FULL, MIXED);
+      expect(applyPendingEdits(once, MIXED)).toBe(once);
+    });
   });
 });

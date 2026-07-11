@@ -1,14 +1,16 @@
 import { TaskFormat } from './parser/taskformat';
 import { DEFAULT_PROJECTS_PATTERN } from './parser/parser';
 
-/** One queued color change made on a device where shared.json isn't reachable
- *  (see sharedMirror below). Lives here rather than in data/sharedConfig.ts to
- *  avoid an import cycle — sharedConfig already imports from this module. */
-export interface PendingColorEdit {
-  kind: 'project' | 'tag';
-  name: string;
-  color: string | null;
-}
+/** One queued shared.json change made on a device where shared.json isn't
+ *  reachable (see sharedMirror below): a project/tag color, or a settings
+ *  field (excludedTags / inheritFrontmatterTags). Lives here rather than in
+ *  data/sharedConfig.ts to avoid an import cycle — sharedConfig already
+ *  imports from this module. */
+export type PendingSharedEdit =
+  | { kind: 'project'; name: string; color: string | null }
+  | { kind: 'tag'; name: string; color: string | null }
+  | { kind: 'excludedTags'; value: string[] }
+  | { kind: 'inheritTags'; value: boolean };
 
 export interface AnnadoSettings {
   /** Folders whose path contains this string are scanned for project files. */
@@ -39,9 +41,9 @@ export interface AnnadoSettings {
    *  phone can resolve the desktop-shared config from this mirror. Written by
    *  the device that can read shared.json; null when integration is off. */
   sharedMirror: string | null;
-  /** Color edits made on a mirror-only device, waiting for a device that can
-   *  reach shared.json to apply them (the relay). */
-  pendingColorEdits: PendingColorEdit[];
+  /** Edits made on a mirror-only device, waiting for a device that can reach
+   *  shared.json to apply them (the relay). */
+  pendingSharedEdits: PendingSharedEdit[];
 }
 
 export const DEFAULT_SETTINGS: AnnadoSettings = {
@@ -55,7 +57,7 @@ export const DEFAULT_SETTINGS: AnnadoSettings = {
   inheritFrontmatterTags: false,
   excludedTags: [],
   sharedMirror: null,
-  pendingColorEdits: [],
+  pendingSharedEdits: [],
 };
 
 /** Merge a loaded data.json object over the defaults. A handful of fields get
@@ -72,16 +74,34 @@ export function mergeSettings(loaded: unknown): AnnadoSettings {
   const excludedTags = Array.isArray(raw['excludedTags']) ? raw['excludedTags'] : [];
   merged.excludedTags = excludedTags.filter((t: unknown): t is string => typeof t === 'string');
   merged.sharedMirror = typeof raw['sharedMirror'] === 'string' ? raw['sharedMirror'] : null;
-  const edits = Array.isArray(raw['pendingColorEdits']) ? raw['pendingColorEdits'] : [];
-  merged.pendingColorEdits = edits.filter(
-    (e: unknown): e is PendingColorEdit =>
-      typeof e === 'object' &&
-      e !== null &&
-      ((e as PendingColorEdit).kind === 'project' || (e as PendingColorEdit).kind === 'tag') &&
-      typeof (e as PendingColorEdit).name === 'string' &&
-      (typeof (e as PendingColorEdit).color === 'string' || (e as PendingColorEdit).color === null),
-  );
+  // Migration: fold the 0.3.0 `pendingColorEdits` queue into the generalized
+  // `pendingSharedEdits` union. Legacy entries were queued earlier, so they
+  // sort first. Both keys can be present mid-migration (e.g. a phone still on
+  // 0.3.0 synced a legacy queue after this device already wrote the new key).
+  const legacyEdits = Array.isArray(raw['pendingColorEdits']) ? raw['pendingColorEdits'] : [];
+  const currentEdits = Array.isArray(raw['pendingSharedEdits']) ? raw['pendingSharedEdits'] : [];
+  merged.pendingSharedEdits = [...legacyEdits, ...currentEdits].filter(isValidPendingSharedEdit);
   return merged;
+}
+
+/** Per-kind shape check for a queued edit loaded from data.json — other
+ *  devices (and other plugin versions) write this file, so nothing here can
+ *  be trusted the way the settings tab's own writes can. Garbage entries are
+ *  dropped silently rather than crashing the load. */
+function isValidPendingSharedEdit(e: unknown): e is PendingSharedEdit {
+  if (typeof e !== 'object' || e === null) return false;
+  const rec = e as Record<string, unknown>;
+  switch (rec['kind']) {
+    case 'project':
+    case 'tag':
+      return typeof rec['name'] === 'string' && (typeof rec['color'] === 'string' || rec['color'] === null);
+    case 'excludedTags':
+      return Array.isArray(rec['value']) && rec['value'].every((v): v is string => typeof v === 'string');
+    case 'inheritTags':
+      return typeof rec['value'] === 'boolean';
+    default:
+      return false;
+  }
 }
 
 /** Port of Vault::is_path_excluded — `relative` is a vault-relative path. */

@@ -1,5 +1,5 @@
 import { Plugin, PluginSettingTab, Setting, App, TFile, Notice, Platform, debounce } from 'obsidian';
-import { AnnadoSettings, DEFAULT_SETTINGS, PendingColorEdit, mergeSettings } from './settings';
+import { AnnadoSettings, DEFAULT_SETTINGS, PendingSharedEdit, mergeSettings } from './settings';
 import { TaskIndex } from './data/index';
 import { toggleTask, toggleChecklistItem, createTask, updateTask, deleteTask, NewTaskInput, WriteResult } from './data/writer';
 import {
@@ -65,8 +65,9 @@ export default class AnnadoPlugin extends Plugin {
    *  the data.json mirror (the phone's path). Content-equality guard: same
    *  text from the same source is a no-op. Malformed content keeps the
    *  previous config (never wipe); nothing at all clears it (back to local
-   *  settings + hash colors). A change to any of the three parser settings
-   *  rescans the index; color-only changes just re-render. */
+   *  settings + hash colors). A change to any of the three parser settings, or
+   *  to shared excludedTags/inheritFrontmatterTags, rescans the index —
+   *  color-only changes just re-render. */
   async reloadSharedConfig(): Promise<void> {
     const fileText = await readSharedText(this.app, this.manifest.dir);
     if (fileText === null && this.sharedSource === 'file') {
@@ -74,7 +75,7 @@ export default class AnnadoPlugin extends Plugin {
       // vanish drops the carried state — a mirror device never had the file,
       // so sync delivering the cleared mirror is what turns IT off.
       this.settings.sharedMirror = null;
-      this.settings.pendingColorEdits = [];
+      this.settings.pendingSharedEdits = [];
       await this.persistSettings();
     }
     const source: 'file' | 'mirror' | null =
@@ -86,9 +87,9 @@ export default class AnnadoPlugin extends Plugin {
     if (text === null) {
       this.shared = null;
       this.sharedSource = null;
-      if (this.settings.pendingColorEdits.length > 0) {
+      if (this.settings.pendingSharedEdits.length > 0) {
         // Integration is off everywhere we can see — don't hold edits forever.
-        this.settings.pendingColorEdits = [];
+        this.settings.pendingSharedEdits = [];
         await this.persistSettings();
       }
     } else {
@@ -107,7 +108,9 @@ export default class AnnadoPlugin extends Plugin {
     const parserChanged =
       before.taskFormat !== after.taskFormat ||
       before.taskMarker !== after.taskMarker ||
-      before.excludedPaths.join('\n') !== after.excludedPaths.join('\n');
+      before.excludedPaths.join('\n') !== after.excludedPaths.join('\n') ||
+      before.excludedTags.join('\n') !== after.excludedTags.join('\n') ||
+      before.inheritFrontmatterTags !== after.inheritFrontmatterTags;
     if (parserChanged && this.index !== undefined) await this.index.fullScan();
     else this.refreshViews();
   }
@@ -158,11 +161,16 @@ export default class AnnadoPlugin extends Plugin {
     this.applyResolvedShared(next, 'file');
   }
 
-  /** One color change from the UI, routed by what this device can reach:
-   *  shared.json present → write it directly (the desktop picks it up);
-   *  mirror only → apply optimistically and queue for the relay;
-   *  neither → the integration is off. */
-  private async saveColorEdit(edit: PendingColorEdit): Promise<void> {
+  /** One shared-config change from the UI (a color, or a synced setting like
+   *  excludedTags/inheritFrontmatterTags), routed by what this device can
+   *  reach: shared.json present → write it directly (the desktop picks it
+   *  up); mirror only → apply optimistically and queue for the relay; neither
+   *  → for a color edit there's nothing to sync a color INTO, so that's a
+   *  Notice; for a settings edit, standalone (no desktop integration) is a
+   *  legitimate mode, so it's a silent no-op — the setting just stays
+   *  local-only (Task 4's settings UI relies on this). */
+  async saveSharedEdit(edit: PendingSharedEdit): Promise<void> {
+    const isColor = edit.kind === 'project' || edit.kind === 'tag';
     try {
       const found = await readSharedTextAt(this.app, this.manifest.dir);
       if (found !== null) {
@@ -170,26 +178,27 @@ export default class AnnadoPlugin extends Plugin {
         await this.persistSettings(); // the mirror changed along with the file
       } else if (this.settings.sharedMirror !== null) {
         this.settings.sharedMirror = applyPendingEdits(this.settings.sharedMirror, [edit]);
-        this.settings.pendingColorEdits.push(edit);
+        this.settings.pendingSharedEdits.push(edit);
         await this.persistSettings();
         this.applyResolvedShared(this.settings.sharedMirror, 'mirror');
-      } else {
+      } else if (isColor) {
         // Hardened contract: no file and no mirror = integration off — never
         // create the file from the plugin side (the desktop deletes it when
         // the toggle goes off).
         new Notice('Color sync is off — enable the vault toggle in the desktop app.');
       }
     } catch {
-      new Notice(`Could not save the ${edit.kind} color.`);
+      if (isColor) new Notice(`Could not save the ${edit.kind} color.`);
+      else new Notice('Could not save the setting.');
     }
   }
 
   async saveProjectColor(name: string, color: string | null): Promise<void> {
-    await this.saveColorEdit({ kind: 'project', name, color });
+    await this.saveSharedEdit({ kind: 'project', name, color });
   }
 
   async saveTagColor(name: string, color: string | null): Promise<void> {
-    await this.saveColorEdit({ kind: 'tag', name, color });
+    await this.saveSharedEdit({ kind: 'tag', name, color });
   }
 
   /** File-device half of the relay: apply edits queued on mirror devices
@@ -197,13 +206,13 @@ export default class AnnadoPlugin extends Plugin {
    *  Write first, clear after — a failed write must keep the queue so the
    *  next poll retries. */
   private async relayPendingEdits(): Promise<void> {
-    if (this.settings.pendingColorEdits.length === 0) return;
+    if (this.settings.pendingSharedEdits.length === 0) return;
     try {
       const found = await readSharedTextAt(this.app, this.manifest.dir);
       if (found === null) return; // mirror device: keep the queue for the relay
-      const next = applyPendingEdits(found.text, this.settings.pendingColorEdits);
+      const next = applyPendingEdits(found.text, this.settings.pendingSharedEdits);
       if (next !== found.text) await this.writeSharedFile(found.path, next);
-      this.settings.pendingColorEdits = [];
+      this.settings.pendingSharedEdits = [];
       await this.persistSettings(); // clears the queue even when apply was a no-op
     } catch {
       // Keep the queue; retried on the next poll.
