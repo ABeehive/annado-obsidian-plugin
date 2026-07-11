@@ -1,4 +1,14 @@
-import { Plugin, PluginSettingTab, Setting, App, TFile, Notice, Platform, debounce } from 'obsidian';
+import {
+  Plugin,
+  PluginSettingTab,
+  Setting,
+  App,
+  TFile,
+  Notice,
+  Platform,
+  debounce,
+  TextComponent,
+} from 'obsidian';
 import { AnnadoSettings, DEFAULT_SETTINGS, PendingSharedEdit, mergeSettings } from './settings';
 import { TaskIndex } from './data/index';
 import { toggleTask, toggleChecklistItem, createTask, updateTask, deleteTask, NewTaskInput, WriteResult } from './data/writer';
@@ -15,6 +25,7 @@ import { setColorOverrides } from './views/ui';
 import { AnnadoView, VIEW_TYPE_ANNADO } from './views/AnnadoView';
 import { Task } from './parser/types';
 import { TaskFormat } from './parser/taskformat';
+import { validateExcludedTagInput } from './parser/tags';
 
 export default class AnnadoPlugin extends Plugin {
   settings: AnnadoSettings = DEFAULT_SETTINGS;
@@ -199,6 +210,24 @@ export default class AnnadoPlugin extends Plugin {
 
   async saveTagColor(name: string, color: string | null): Promise<void> {
     await this.saveSharedEdit({ kind: 'tag', name, color });
+  }
+
+  /** Settings-tab write for the excluded-tags list: persist locally (rescans),
+   *  then route to shared.json/mirror when reachable — saveSharedEdit no-ops
+   *  silently for a settings-kind edit when standalone (no file, no mirror),
+   *  so nothing extra is needed here for that case. */
+  async saveExcludedTags(next: string[]): Promise<void> {
+    this.settings.excludedTags = next;
+    await this.saveSettings();
+    await this.saveSharedEdit({ kind: 'excludedTags', value: next });
+  }
+
+  /** Settings-tab write for the inherit-frontmatter-tags toggle. Same
+   *  local-then-shared pattern as saveExcludedTags above. */
+  async saveInheritFrontmatterTags(enabled: boolean): Promise<void> {
+    this.settings.inheritFrontmatterTags = enabled;
+    await this.saveSettings();
+    await this.saveSharedEdit({ kind: 'inheritTags', value: enabled });
   }
 
   /** File-device half of the relay: apply edits queued on mirror devices
@@ -478,5 +507,79 @@ class AnnadoSettingTab extends PluginSettingTab {
       excludedSetting.setDesc('Synced from the Annado desktop app (shared.json) — change it there.');
       excludedSetting.setDisabled(true);
     }
+
+    // Two-way, unlike the settings above: this is never disabled even when
+    // shared config is present — see saveInheritFrontmatterTags/saveExcludedTags.
+    new Setting(containerEl)
+      .setName('Show frontmatter tags on tasks')
+      .setDesc(
+        'When on, a note’s frontmatter tags apply to its tasks too (a note can override with ' +
+          'annado_inherit_tags: true/false in its own frontmatter). Syncs with the Annado desktop ' +
+          'app when shared config is present.',
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.effectiveSettings.inheritFrontmatterTags).onChange(async (v) => {
+          await this.plugin.saveInheritFrontmatterTags(v);
+        }),
+      );
+
+    new Setting(containerEl).setName('Excluded tags').setHeading();
+    containerEl.createEl('p', {
+      cls: 'setting-item-description',
+      text:
+        'Tasks carrying any of these tags — their own, or inherited from the note’s frontmatter — are ' +
+        'hidden everywhere in the plugin (excluding a tag also excludes its subtree). Syncs with the ' +
+        'Annado desktop app when shared config is present.',
+    });
+
+    for (const tag of this.plugin.effectiveSettings.excludedTags) {
+      new Setting(containerEl)
+        .setName(`#${tag}`)
+        .addExtraButton((b) =>
+          b
+            .setIcon('x')
+            .setTooltip('Remove')
+            .onClick(async () => {
+              await this.plugin.saveExcludedTags(
+                this.plugin.effectiveSettings.excludedTags.filter((t) => t !== tag),
+              );
+              this.display();
+            }),
+        );
+    }
+
+    let excludedTagInput: TextComponent;
+    const submitExcludedTag = async (): Promise<void> => {
+      const result = validateExcludedTagInput(
+        excludedTagInput.getValue(),
+        this.plugin.effectiveSettings.excludedTags,
+        this.plugin.effectiveSettings.taskMarker,
+      );
+      switch (result.outcome) {
+        case 'empty':
+          return;
+        case 'duplicate':
+          new Notice('That tag is already excluded.');
+          return;
+        case 'marker':
+          new Notice(`#${result.marker} is your import marker — excluding it would hide every task.`);
+          return;
+        case 'ok':
+          await this.plugin.saveExcludedTags([...this.plugin.effectiveSettings.excludedTags, result.tag]);
+          this.display();
+      }
+    };
+    new Setting(containerEl)
+      .addText((t) => {
+        excludedTagInput = t;
+        t.setPlaceholder('personal');
+        t.inputEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            void submitExcludedTag();
+          }
+        });
+      })
+      .addButton((b) => b.setButtonText('Add').onClick(() => void submitExcludedTag()));
   }
 }

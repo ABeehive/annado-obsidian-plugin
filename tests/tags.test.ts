@@ -13,6 +13,7 @@ import {
   removeExcludedTagTasks,
   allTaskTags,
   normalizeTagInput,
+  validateExcludedTagInput,
 } from '../src/parser/tags';
 
 const FIXED_RECURRENCE: Recurrence = { interval: 1, unit: 'weeks', mode: 'fixed', raw: null };
@@ -287,5 +288,58 @@ describe('normalizeTagInput', () => {
 
   it('leaves a bare word untouched', () => {
     expect(normalizeTagInput('werk')).toBe('werk');
+  });
+});
+
+describe('validateExcludedTagInput (settings UI guard, Task 4)', () => {
+  it('ok: normalizes and returns the tag, original casing preserved', () => {
+    expect(validateExcludedTagInput(' #Werk ', [], '')).toEqual({ outcome: 'ok', tag: 'Werk' });
+  });
+
+  it('empty: blank input', () => {
+    expect(validateExcludedTagInput('   ', [], '')).toEqual({ outcome: 'empty' });
+  });
+
+  it('empty: a bare "#" normalizes to empty', () => {
+    expect(validateExcludedTagInput('#', [], '')).toEqual({ outcome: 'empty' });
+  });
+
+  it('duplicate: case-insensitive match against the current list', () => {
+    expect(validateExcludedTagInput('WERK', ['werk'], '')).toEqual({ outcome: 'duplicate' });
+  });
+
+  it('duplicate check runs before the marker check', () => {
+    expect(validateExcludedTagInput('task', ['task'], 'task')).toEqual({ outcome: 'duplicate' });
+  });
+
+  it('marker: matches a bare marker case-insensitively', () => {
+    expect(validateExcludedTagInput('TASK', [], 'task')).toEqual({ outcome: 'marker', marker: 'task' });
+  });
+
+  it('marker: matches when the marker setting is stored with a leading #', () => {
+    expect(validateExcludedTagInput('task', [], '#task')).toEqual({ outcome: 'marker', marker: 'task' });
+  });
+
+  it('marker: matches when the input carries a leading # too', () => {
+    expect(validateExcludedTagInput('#task', [], '#task')).toEqual({ outcome: 'marker', marker: 'task' });
+  });
+
+  it('marker: an empty marker setting never triggers the guard', () => {
+    expect(validateExcludedTagInput('task', [], '')).toEqual({ outcome: 'ok', tag: 'task' });
+    expect(validateExcludedTagInput('task', [], '   ')).toEqual({ outcome: 'ok', tag: 'task' });
+  });
+
+  it('ok: a tag that is neither a duplicate nor the marker', () => {
+    expect(validateExcludedTagInput('personal', ['werk'], 'task')).toEqual({
+      outcome: 'ok',
+      tag: 'personal',
+    });
+  });
+
+  it('ok: a subtree of an already-excluded tag is not a duplicate', () => {
+    expect(validateExcludedTagInput('werk/admin', ['werk'], '')).toEqual({
+      outcome: 'ok',
+      tag: 'werk/admin',
+    });
   });
 });

@@ -7,6 +7,7 @@
 
 import { Task } from './types';
 import { asRecord } from './noteMetadata';
+import { normalizeMarker } from './parser';
 
 /** A task tag matches a (possibly parent) filter tag if it IS that tag or a nested
  *  descendant (`filter/…`). Case-insensitive. `#inbox` matches `#inbox/to-read`
@@ -27,6 +28,36 @@ export function tagsMatchFilter(tags: string[], filterTag: string): boolean {
  *  Rust source strips ALL leading '#'s. */
 export function normalizeTagInput(s: string): string {
   return s.trim().replace(/^#/, '');
+}
+
+/** Outcome of validating a candidate excluded-tag add (settings UI, Task 4).
+ *  `marker` on the 'marker' branch is the already-normalized marker, ready to
+ *  drop straight into the desktop's guard message. */
+export type ExcludedTagValidation =
+  | { outcome: 'ok'; tag: string }
+  | { outcome: 'empty' }
+  | { outcome: 'duplicate' }
+  | { outcome: 'marker'; marker: string };
+
+/** Port of the desktop's submitExcludedTag guard (SettingsModal.tsx): normalize
+ *  the input, refuse empty, refuse a case-insensitive duplicate of `current`,
+ *  refuse the import marker (case-insensitive; `marker` is the raw taskMarker
+ *  setting value, possibly '#'-prefixed — normalized the same way normalizeMarker
+ *  normalizes it for matching elsewhere). Pure decision only — callers own the
+ *  write and any Notice text. */
+export function validateExcludedTagInput(
+  input: string,
+  current: readonly string[],
+  marker: string,
+): ExcludedTagValidation {
+  const tag = normalizeTagInput(input);
+  if (tag === '') return { outcome: 'empty' };
+  if (current.some((t) => t.toLowerCase() === tag.toLowerCase())) return { outcome: 'duplicate' };
+  const normalizedMarker = normalizeMarker(marker);
+  if (normalizedMarker !== '' && tag.toLowerCase() === normalizedMarker.toLowerCase()) {
+    return { outcome: 'marker', marker: normalizedMarker };
+  }
+  return { outcome: 'ok', tag };
 }
 
 /** Trim + strip ALL leading '#'s (Rust trim_start_matches('#') in
