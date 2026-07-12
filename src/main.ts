@@ -466,29 +466,6 @@ class AnnadoSettingTab extends PluginSettingTab {
       markerSetting.setDisabled(true);
     }
 
-    new Setting(containerEl).setName('Daily notes (fallback)').setHeading();
-    containerEl.createEl('p', {
-      cls: 'setting-item-description',
-      text: 'Only used when the Daily Notes core plugin has no configuration — its settings always win.',
-    });
-
-    new Setting(containerEl).setName('Folder').addText((t) =>
-      t.setValue(this.plugin.settings.dailyNotesFolder).onChange(async (v) => {
-        this.plugin.settings.dailyNotesFolder = v;
-        await this.plugin.saveSettings();
-      }),
-    );
-
-    new Setting(containerEl)
-      .setName('Filename format')
-      .setDesc('Moment.js format, e.g. YYYY/MM-MMMM/YYYY-MM-DD')
-      .addText((t) =>
-        t.setValue(this.plugin.settings.dailyNotesFormat).onChange(async (v) => {
-          this.plugin.settings.dailyNotesFormat = v;
-          await this.plugin.saveSettings();
-        }),
-      );
-
     const excludedSetting = new Setting(containerEl)
       .setName('Excluded paths')
       .setDesc('One per line. "Archive/" excludes a folder, otherwise a single file.')
@@ -523,31 +500,6 @@ class AnnadoSettingTab extends PluginSettingTab {
         }),
       );
 
-    new Setting(containerEl).setName('Excluded tags').setHeading();
-    containerEl.createEl('p', {
-      cls: 'setting-item-description',
-      text:
-        'Tasks carrying any of these tags — their own, or inherited from the note’s frontmatter — are ' +
-        'hidden everywhere in the plugin (excluding a tag also excludes its subtree). Syncs with the ' +
-        'Annado desktop app when shared config is present.',
-    });
-
-    for (const tag of this.plugin.effectiveSettings.excludedTags) {
-      new Setting(containerEl)
-        .setName(`#${tag}`)
-        .addExtraButton((b) =>
-          b
-            .setIcon('x')
-            .setTooltip('Remove')
-            .onClick(async () => {
-              await this.plugin.saveExcludedTags(
-                this.plugin.effectiveSettings.excludedTags.filter((t) => t !== tag),
-              );
-              this.display();
-            }),
-        );
-    }
-
     let excludedTagInput: TextComponent;
     const submitExcludedTag = async (): Promise<void> => {
       const result = validateExcludedTagInput(
@@ -570,6 +522,11 @@ class AnnadoSettingTab extends PluginSettingTab {
       }
     };
     new Setting(containerEl)
+      .setName('Excluded tags')
+      .setDesc(
+        'Tasks carrying any of these tags — their own, or inherited from the note’s frontmatter — are ' +
+          'hidden everywhere (a tag also excludes its subtree). Syncs with the desktop app.',
+      )
       .addText((t) => {
         excludedTagInput = t;
         t.setPlaceholder('personal');
@@ -581,5 +538,44 @@ class AnnadoSettingTab extends PluginSettingTab {
         });
       })
       .addButton((b) => b.setButtonText('Add').onClick(() => void submitExcludedTag()));
+
+    if (this.plugin.effectiveSettings.excludedTags.length > 0) {
+      const chips = containerEl.createDiv({ cls: 'annado-settings-tag-chips' });
+      for (const tag of this.plugin.effectiveSettings.excludedTags) {
+        const chip = chips.createSpan({ cls: 'annado-settings-tag-chip' });
+        chip.createSpan({ text: `#${tag}` });
+        const remove = chip.createSpan({ cls: 'annado-settings-tag-chip-x', text: '×' });
+        remove.setAttribute('aria-label', `Remove #${tag}`);
+        remove.addEventListener('click', async () => {
+          await this.plugin.saveExcludedTags(
+            this.plugin.effectiveSettings.excludedTags.filter((t) => t !== tag),
+          );
+          this.display();
+        });
+      }
+    }
+
+    new Setting(containerEl).setName('Daily notes (fallback)').setHeading();
+    containerEl.createEl('p', {
+      cls: 'setting-item-description',
+      text: 'Only used when the Daily Notes core plugin has no configuration — its settings always win.',
+    });
+
+    new Setting(containerEl).setName('Folder').addText((t) =>
+      t.setValue(this.plugin.settings.dailyNotesFolder).onChange(async (v) => {
+        this.plugin.settings.dailyNotesFolder = v;
+        await this.plugin.saveSettings();
+      }),
+    );
+
+    new Setting(containerEl)
+      .setName('Filename format')
+      .setDesc('Moment.js format, e.g. YYYY/MM-MMMM/YYYY-MM-DD')
+      .addText((t) =>
+        t.setValue(this.plugin.settings.dailyNotesFormat).onChange(async (v) => {
+          this.plugin.settings.dailyNotesFormat = v;
+          await this.plugin.saveSettings();
+        }),
+      );
   }
 }

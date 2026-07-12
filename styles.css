@@ -1634,3 +1634,31 @@
 .annado-meta-field.is-languages {
   color: #43a047; /* signal */
 }
+
+/* Settings tab: excluded-tags chips (compact pills under the add-row). */
+.annado-settings-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.annado-settings-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small);
+}
+.annado-settings-tag-chip-x {
+  cursor: pointer;
+  opacity: 0.55;
+  font-size: 1.05em;
+  line-height: 1;
+}
+.annado-settings-tag-chip-x:hover {
+  opacity: 1;
+}
