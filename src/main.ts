@@ -555,11 +555,10 @@ class AnnadoSettingTab extends PluginSettingTab {
       }
     }
 
-    new Setting(containerEl).setName('Daily notes (fallback)').setHeading();
-    containerEl.createEl('p', {
-      cls: 'setting-item-description',
-      text: 'Only used when the Daily Notes core plugin has no configuration — its settings always win.',
-    });
+    new Setting(containerEl)
+      .setName('Daily notes (fallback)')
+      .setDesc('Only used when the Daily Notes core plugin has no configuration — its settings always win.')
+      .setHeading();
 
     new Setting(containerEl).setName('Folder').addText((t) =>
       t.setValue(this.plugin.settings.dailyNotesFolder).onChange(async (v) => {
