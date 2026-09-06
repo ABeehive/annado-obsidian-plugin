@@ -1,7 +1,7 @@
 # Annado Mobile (Annado Obsidian Plugin)
 
 > **Status: retired (September 2026).** This plugin is superseded by the Annado iOS app
-> and gets no further development. It still works as released (v0.1.4) and reads the same
+> and gets no further development. It still works as released and reads the same
 > `shared.json` settings file, but new format features — `@remind`, the current marker
 > order — are only implemented in the desktop and iOS apps. Bug reports are welcome; new
 > features will not be added here.
