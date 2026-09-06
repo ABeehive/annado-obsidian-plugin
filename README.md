@@ -1,5 +1,11 @@
 # Annado Mobile (Annado Obsidian Plugin)
 
+> **Status: retired (September 2026).** This plugin is superseded by the Annado iOS app
+> and gets no further development. It still works as released (v0.1.4) and reads the same
+> `shared.json` settings file, but new format features — `@remind`, the current marker
+> order — are only implemented in the desktop and iOS apps. Bug reports are welcome; new
+> features will not be added here.
+
 **Your Obsidian vault as a friendly task manager on your phone.**
 
 Annado Mobile turns the Markdown checkboxes already in your notes into a fast,
